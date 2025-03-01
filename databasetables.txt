@@ -1,0 +1,79 @@
+CREATE TABLE topics (
+    topic_id INT AUTO_INCREMENT PRIMARY KEY,   -- Unique ID for each topic
+    topic_name VARCHAR(255) NOT NULL,          -- Name of the topic
+    video_url VARCHAR(2083) NOT NULL,          -- URL of the video (maximum length for a URL)
+    course_id INT NOT NULL,                    -- Foreign key linking to the course table
+    FOREIGN KEY (course_id) REFERENCES course(course_id) 
+        ON DELETE CASCADE ON UPDATE CASCADE   -- Ensure referential integrity
+);
+CREATE TABLE course (
+    course_id INT AUTO_INCREMENT PRIMARY KEY, -- Unique ID for each course
+    course_name VARCHAR(255) NOT NULL,        -- Name of the course
+    created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Time when the course is created
+    course_description TEXT,                 -- Description of the course
+    instructor VARCHAR(255) NOT NULL         -- Name of the instructor
+);
+CREATE TABLE Packages (
+    package_id INT AUTO_INCREMENT PRIMARY KEY, -- Unique identifier for each package
+    package_name VARCHAR(255) NOT NULL,        -- Name of the package
+    description TEXT,                          -- Description of the package
+    package_price DECIMAL(10, 2) NOT NULL      -- Price of the package, with two decimal places
+);
+CREATE TABLE package_courses (
+    map_id INT AUTO_INCREMENT PRIMARY KEY,         -- Unique identifier for each mapping
+    package_id INT NOT NULL,                       -- Foreign key referencing the Packages table
+    course_id INT NOT NULL,                        -- Foreign key referencing the Courses table
+    UNIQUE (package_id, course_id),                -- Ensures no duplicate mappings between the same package and course
+    FOREIGN KEY (package_id) REFERENCES packages(package_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,       -- Ensures referential integrity for packages
+    FOREIGN KEY (course_id) REFERENCES course(course_id)
+        ON DELETE CASCADE ON UPDATE CASCADE        -- Ensures referential integrity for courses
+);
+SELECT p.package_id, p.package_name
+FROM PackageCourseMapping pcm
+JOIN Packages p ON pcm.package_id = p.package_id
+WHERE pcm.course_id = 101;
+
+SELECT c.course_id, c.course_name
+FROM PackageCourseMapping pcm
+JOIN Courses c ON pcm.course_id = c.course_id
+WHERE pcm.package_id = 1;
+--retrieving the courses mapped to packages 
+
+-- User Table
+CREATE TABLE Users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255),
+    email VARCHAR(255),
+    referral_code VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Wallet Table
+CREATE TABLE Wallet (
+    wallet_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    balance DECIMAL(10, 2) DEFAULT 0,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES User(userId)
+);
+
+-- Transaction Table
+CREATE TABLE WalletTransactions (
+    transaction_id INT PRIMARY KEY AUTO_INCREMENT,
+    wallet_id INT,
+    amount DECIMAL(10, 2),
+    transaction_type ENUM('credit', 'debit'),
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (wallet_id) REFERENCES Wallet(wallet_id)
+);
+////
+CREATE TABLE WithdrawalRequest (
+    withdrawal_id INT PRIMARY KEY AUTO_INCREMENT, -- Primary key for the table
+    UserID INT NOT NULL,                          -- Foreign key referencing the user
+    Amount DECIMAL(10, 2) NOT NULL,               -- Withdrawal amount
+    Status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending', -- Status of the request
+    Date DATETIME DEFAULT CURRENT_TIMESTAMP,      -- Request creation date and time
+    FOREIGN KEY (UserID) REFERENCES Users(user_id) -- Foreign key constraint
+);
