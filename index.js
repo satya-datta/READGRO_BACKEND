@@ -19,12 +19,12 @@ app.use(cookieParser());
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://localhost:3000"], // Allow multiple origins
-
-    methods: ["GET", "POST", "PUT", "DELETE"], // Allowed HTTP methods
-    allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers (including Authorization for JWT)
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
+
 app.use(express.json());
 app.use("/", adminRouter);
 app.use("/", PackageRouter);
@@ -33,17 +33,12 @@ app.use("/", UserBankrouter);
 app.use("/", WithDrawlrouter);
 app.use("/", PaymentRouter);
 app.use(express.urlencoded({ extended: true }));
-app.use(
-  cors({
-    origin: "http://localhost:3000", // Replace with your frontend URL
-    credentials: true, // Allow credentials (cookies)
-  })
-);
+
 app.use((req, res, next) => {
   console.log("Cookies middleware:", req.cookies); // Log parsed cookies
   next();
 });
-app.set('trust proxy', 1); // This is required for secure cookies on cloud
+app.set("trust proxy", 1); // This is required for secure cookies on cloud
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`API working on port ${port}`);

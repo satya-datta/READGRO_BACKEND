@@ -112,7 +112,7 @@ router.post("/logout", (req, res) => {
   res.clearCookie("adminToken", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-    sameSite: "strict",
+    sameSite: "Lax",
   });
 
   res.status(200).json({ message: "Logout successful" });
@@ -169,6 +169,6 @@ router.delete("/delete-course/:course_id", (req, res) => {
 });
 
 router.post("/sendadmin-otp", admincontroller.sendloginOtp);
-router.post("/verifyadmin-otp",admincontroller.VerifyOtp);
+router.post("/verifyadmin-otp", admincontroller.VerifyOtp);
 
 module.exports = router;

@@ -54,9 +54,9 @@ exports.authadmin = (req, res, next) => {
 
       // Set the token as an HTTP-only cookie
       res.cookie("adminToken", token, {
-        httpOnly: true, // Prevent access to the cookie via JavaScript
-        secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-        sameSite: "strict", // Prevent CSRF
+        httpOnly: true,
+        secure: true, // Only allow in HTTPS
+        sameSite: "None", // Allows cross-origin cookies
         maxAge: 2 * 60 * 60 * 1000, // 2 hours
       });
 
