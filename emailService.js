@@ -1,12 +1,12 @@
 const nodemailer = require("nodemailer");
-
+require("dotenv").config();
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465, // or 587
   secure: true, // true for port 465, false for port 587
   auth: {
-    user: "satyadattakallepalli@gmail.com",
-    pass: "imuiczvgfbbrmojp",
+    user: process.env.EMAIL_USER, // Your Gmail ID
+    pass: process.env.EMAIL_PASS,
   },
   tls: {
     rejectUnauthorized: false, // Bypass certificate validation (NOT recommended for production)
@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 const sendEmail = async (to, subject, htmlContent) => {
   try {
     const info = await transporter.sendMail({
-      from: '"Satya Datta" <satyadattakallepalli@gmail.com>', 
+      from: '"Satya Datta" <satyadattakallepalli@gmail.com>',
       to, // Recipient email
       subject, // Email subject
       html: htmlContent, // Email content
@@ -29,5 +29,33 @@ const sendEmail = async (to, subject, htmlContent) => {
     return false;
   }
 };
+// Function to generate OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+};
 
-module.exports = sendEmail;
+// Function to send OTP email
+const sendOTP = async (toEmail) => {
+  const otp = generateOTP(); // Generate OTP
+  const subject = "Your OTP Code";
+  const htmlContent = `<p>Your OTP code is: <strong>${otp}</strong></p>`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: '"Satya Datta" <satyadattakallepalli@gmail.com>',
+      to: toEmail,
+      subject,
+      html: htmlContent,
+    });
+
+    console.log("OTP sent successfully:", info.messageId);
+    return otp; // Return OTP for verification
+  } catch (error) {
+    console.error("Error sending OTP:", error);
+    return null;
+  }
+};
+module.exports = {
+  sendEmail,
+  sendOTP,
+};

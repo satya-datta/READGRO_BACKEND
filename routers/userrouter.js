@@ -62,6 +62,9 @@ Userrouter.post("/userlogout", Usercontroller.logoutUser);
 
 Userrouter.post("/updatepassword/:user_id", Usercontroller.updatePassword);
 
+Userrouter.post("/send-userlogin-otp", Usercontroller.sendOtp);
+Userrouter.post("/verifyuser-otp", Usercontroller.VerifyOtp);
+
 Userrouter.get("/getuser_details/:user_id", Usercontroller.getUserById);
 Userrouter.post("/validate_user", Usercontroller.validateUser);
 Userrouter.put("/update_user/:user_id", (req, res, next) => {

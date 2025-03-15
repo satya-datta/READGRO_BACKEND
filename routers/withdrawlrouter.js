@@ -13,13 +13,21 @@ WithDrawlrouter.get(
   "/getwallet/:user_id",
   withdrawlcontroller.getWalletDetails
 );
-// Wallet
+// Wallet    C:\Users\lenovo\Downloads\ReadGro_MAIN\READGRO\backend\routers\withdrawlrouter.js
 WithDrawlrouter.post("/deductwallet", withdrawlcontroller.deductWallet);
-WithDrawlrouter.get("/earnings/:reffer_id", withdrawlcontroller.getEarnings);
 
+WithDrawlrouter.get("/earnings/:reffer_id", withdrawlcontroller.getEarnings);
+WithDrawlrouter.get("/payments", withdrawlcontroller.getRazorpayPayments);
+WithDrawlrouter.get("/getpayouts", withdrawlcontroller.getPayouts);
 //Wallet Transactions
+
 WithDrawlrouter.get(
   "/getwallettransaction/:reffer_id",
   withdrawlcontroller.getTransactionsByRefferId
 );
 module.exports = WithDrawlrouter;
+
+//Verify OTP and sending otp for pyment
+WithDrawlrouter.post("/send-otp", withdrawlcontroller.sendOtp);
+
+WithDrawlrouter.post("/process-payout", withdrawlcontroller.ProcessPayout);
