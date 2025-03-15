@@ -237,7 +237,7 @@ exports.createUser = (req, res, next) => {
                         });
                       }
 
-                      const updateWalletQuery = `UPDATE wallet SET balance = balance + ? WHERE user_id = ?`;
+                      const updateWalletQuery = `UPDATE wallet SET balance = balance + ?, last_updated = NOW() WHERE user_id = ?`;
                       connection.query(
                         updateWalletQuery,
                         [referralCommission, referrerId],
@@ -264,8 +264,8 @@ exports.createUser = (req, res, next) => {
                               const referrerWalletId = walletRows[0].wallet_id;
 
                               const transactionQuery = `
-                        INSERT INTO wallettransactions (user_id,reffer_id, wallet_id, amount, transaction_type, description) 
-                        VALUES (?,?, ?, ?, ?, ?)
+                        INSERT INTO wallettransactions (user_id, reffer_id, wallet_id, amount, transaction_type, description, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, NOW())
                       `;
                               const transactionValues = [
                                 userId,

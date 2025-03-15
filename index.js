@@ -43,6 +43,7 @@ app.use((req, res, next) => {
   console.log("Cookies middleware:", req.cookies); // Log parsed cookies
   next();
 });
+app.set('trust proxy', 1); // This is required for secure cookies on cloud
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`API working on port ${port}`);
