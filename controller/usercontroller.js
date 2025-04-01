@@ -182,10 +182,10 @@ exports.createUser = (req, res, next) => {
 
           res.cookie("UserauthToken", token, {
             httpOnly: true,
-            sameSite: "Strict",
-            maxAge: 2 * 60 * 60 * 1000,
+            sameSite: "None", // Required for cross-origin cookies
+            maxAge: 2 * 60 * 60 * 1000, // 2 hours
+            secure: true, // Required for HTTPS
           });
-
           const walletQuery = `INSERT INTO wallet (user_id, balance) VALUES (?, ?)`;
           connection.query(walletQuery, [userId, 0.0], (err, walletResult) => {
             if (err) {
@@ -379,8 +379,9 @@ exports.loginUser = (req, res) => {
     // Set token as an HTTP-only cookie
     res.cookie("UserauthToken", token, {
       httpOnly: true,
-      sameSite: "Strict",
+      sameSite: "None", // Required for cross-origin cookies
       maxAge: 2 * 60 * 60 * 1000, // 2 hours
+      secure: true, // Required for HTTPS
     });
 
     // Send response with user_id and user name
@@ -392,6 +393,7 @@ exports.loginUser = (req, res) => {
     });
   });
 };
+
 exports.validateUserCookie = (req, res) => {
   let token = req.cookies.UserauthToken; // Check if token is in cookies
   if (!token) {
@@ -435,6 +437,7 @@ exports.logoutUser = (req, res) => {
 
   res.status(200).json({ message: "Logout successful" });
 };
+
 exports.getUserById = (req, res) => {
   const userId = req.params.user_id; // Assume user ID is provided as a URL parameter
 
