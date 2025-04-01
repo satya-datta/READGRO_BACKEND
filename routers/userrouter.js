@@ -59,11 +59,13 @@ Userrouter.get("/getallusers", (req, res) => {
 Userrouter.post("/userauth", Usercontroller.loginUser);
 Userrouter.get("/auth/uservalidate", Usercontroller.validateUserCookie);
 Userrouter.post("/userlogout", Usercontroller.logoutUser);
-
+Userrouter.post("/validate_refferalcode", Usercontroller.validateReferralCode);
 Userrouter.post("/updatepassword/:user_id", Usercontroller.updatePassword);
 
 Userrouter.post("/send-userlogin-otp", Usercontroller.sendOtp);
 Userrouter.post("/verifyuser-otp", Usercontroller.VerifyOtp);
+
+Userrouter.post("/sendcontact", Usercontroller.sendContactDetails);
 
 Userrouter.get("/getuser_details/:user_id", Usercontroller.getUserById);
 Userrouter.post("/validate_user", Usercontroller.validateUser);

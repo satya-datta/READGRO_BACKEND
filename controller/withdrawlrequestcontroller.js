@@ -311,7 +311,7 @@ exports.ProcessPayout = async (req, res) => {
     }
     const userEmail = user[0].email;
 
-    // 📌 Fetch Fund Account ID from `user_bankdetails`
+    // 📌 Fetch Fund Account ID from `user_bank_details`
     const [bankDetails] = await conn.execute(
       "SELECT fund_account_id FROM user_bank_details WHERE user_id = ?",
       [userId]
@@ -327,7 +327,7 @@ exports.ProcessPayout = async (req, res) => {
 
     // 📌 Create RazorpayX Payout
     const payoutData = {
-      account_number: "035322010000341", // RazorpayX Test Account
+      account_number: "2323230022317499", // RazorpayX Test Account
       fund_account_id: fund_account_id,
       amount: amount * 100, // Convert to paisa
       currency: "INR",
@@ -344,15 +344,19 @@ exports.ProcessPayout = async (req, res) => {
         headers: { "Content-Type": "application/json" },
       }
     );
-
-    // 📌 Update Withdrawal Status to Approved
-    await conn.execute(
-      "UPDATE withdrawal_requests SET status = 'Approved' WHERE id = ?",
-      [requestId]
-    );
+    console.log(requestId, "request Id ");
+    // 📌 Update Withdrawal Status to Approved (Using `connection`)
+    const updateQuery =
+      "UPDATE withdrawal_requests SET status = 'Approved' WHERE id = ?";
+    connection.query(updateQuery, [requestId], (err) => {
+      if (err) {
+        console.error("Error updating withdrawal status:", err);
+      }
+    });
+    console.log(requestId, "request Id ");
 
     // 📌 Send Approval Email
-    await sendEmail(
+    sendEmail(
       userEmail,
       "Withdrawal Approved",
       `
@@ -372,23 +376,28 @@ exports.ProcessPayout = async (req, res) => {
   } catch (error) {
     console.error("Payout Processing Error:", error);
 
-    // 📌 Rollback transaction in case of failure
-    await conn.rollback();
+    await conn.rollback(); // Rollback transaction
 
-    // 📌 Refund money back to user's wallet
-    await conn.execute(
-      "UPDATE wallet SET balance = balance + ?, last_updated = NOW() WHERE user_id = ?",
-      [amount, userId]
-    );
+    // 📌 Refund money back to user's wallet (Using `connection`, not `conn`)
+    const refundQuery =
+      "UPDATE wallet SET balance = balance + ?, last_updated = NOW() WHERE user_id = ?";
+    connection.query(refundQuery, [amount, userId], (err) => {
+      if (err) {
+        console.error("Error refunding money to wallet:", err);
+      }
+    });
 
-    // 📌 Update Withdrawal Request Status to Rejected
-    await conn.execute(
-      "UPDATE withdrawal_requests SET status = 'Rejected' WHERE id = ?",
-      [requestId]
-    );
+    // 📌 Update Withdrawal Request Status to Rejected (Using `connection`)
+    const rejectQuery =
+      "UPDATE withdrawal_requests SET status = 'Rejected' WHERE id = ?";
+    connection.query(rejectQuery, [requestId], (err) => {
+      if (err) {
+        console.error("Error updating withdrawal status to Rejected:", err);
+      }
+    });
 
     // 📌 Send Rejection Email
-    await sendEmail(
+    sendEmail(
       userEmail,
       "Withdrawal Rejected",
       `
@@ -399,7 +408,6 @@ exports.ProcessPayout = async (req, res) => {
     `
     );
 
-    await conn.commit();
     res.status(500).json({
       success: false,
       message: "Payout failed",
@@ -446,14 +454,17 @@ exports.getRazorpayPayments = async (req, res) => {
 };
 const fetchPayouts = async () => {
   try {
-    const response = await axios.get("https://api.razorpay.com/v1/payouts", {
-      auth: {
-        username: RAZORPAY_KEY_ID,
-        password: RAZORPAY_KEY_SECRET,
-      },
-    });
+    const response = await axios.get(
+      "https://api.razorpay.com/v1/payouts?status=processed",
+      {
+        auth: {
+          username: RAZORPAY_KEY_ID,
+          password: RAZORPAY_KEY_SECRET,
+        },
+      }
+    );
 
-    return response.data; // Returning the payout data
+    return response.data;
   } catch (error) {
     console.error(
       "Error fetching payouts:",

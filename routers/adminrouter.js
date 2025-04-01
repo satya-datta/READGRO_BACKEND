@@ -6,31 +6,58 @@ const jwt = require("jsonwebtoken");
 // Secret key for JWT signing (use environment variables)
 const JWT_SECRET = process.env.JWT_SECRET || "AUTHENTICATED";
 
-router.put("/updatecoursedetails/:course_id", (req, res) => {
-  const { course_id } = req.params;
-  const { course_name, course_description, instructor } = req.body;
+// Create Course
+const multer = require("multer");
+const path = require("path");
 
-  // Validate input
-  if (!course_id) {
-    return res.status(400).json({ message: "Course ID is required" });
-  }
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/"); // Directory where images will be stored
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
+  },
+});
 
-  if (!course_name || !course_description || !instructor) {
-    return res.status(400).json({ message: "All fields are required" });
-  }
+const upload = multer({ storage });
+router.put(
+  "/updatecoursedetails/:course_id",
+  upload.single("course_image"),
+  (req, res) => {
+    const { course_id } = req.params;
+    const { course_name, course_description, instructor } = req.body;
+    const course_image = req.file ? req.file.filename : null;
 
-  console.log("Updating course details");
+    // Validate input
+    if (!course_id) {
+      return res.status(400).json({ message: "Course ID is required" });
+    }
 
-  const query = `
+    if (!course_name || !course_description || !instructor) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    console.log("Updating course details");
+
+    // If an image is uploaded, update the image along with other fields
+    const query = course_image
+      ? `
       UPDATE course 
-      SET course_name = ?, course_description = ?, instructor = ? 
+      SET course_name = ?, course_description = ?, instructor = ?, course_image = ?
+      WHERE course_id = ?
+    `
+      : `
+      UPDATE course 
+      SET course_name = ?, course_description = ?, instructor = ?
       WHERE course_id = ?
     `;
 
-  connection.query(
-    query,
-    [course_name, course_description, instructor, course_id],
-    (err, result) => {
+    const values = course_image
+      ? [course_name, course_description, instructor, course_image, course_id]
+      : [course_name, course_description, instructor, course_id];
+
+    connection.query(query, values, (err, result) => {
       if (err) {
         console.error("Error updating course:", err);
         return res
@@ -44,11 +71,17 @@ router.put("/updatecoursedetails/:course_id", (req, res) => {
 
       res.status(200).json({
         message: "Course updated successfully",
-        updatedFields: { course_name, course_description, instructor },
+        updatedFields: {
+          course_name,
+          course_description,
+          instructor,
+          course_image,
+        },
       });
-    }
-  );
-});
+    });
+  }
+);
+
 router.put("/updatetopic/:topic_id", admincontroller.updateTopic);
 
 router.post("/create-topic", admincontroller.createTopic);
@@ -132,6 +165,11 @@ router.post("/update-admin", admincontroller.updateAdmin);
 router.post("/admin-cred-send-otp", admincontroller.sendOtp);
 
 router.get("/getallcourses", admincontroller.getAllCourses);
+
+
+router.get("/getpackagebycourse/:course_id", admincontroller.getPackagesByCourse);
+
+
 router.get("/gettopics/:course_id", admincontroller.getTopicsByCourseId);
 router.get(
   "/getspecific_course/:course_id",
@@ -170,5 +208,7 @@ router.delete("/delete-course/:course_id", (req, res) => {
 
 router.post("/sendadmin-otp", admincontroller.sendloginOtp);
 router.post("/verifyadmin-otp", admincontroller.VerifyOtp);
+router.put("/website_hero", admincontroller.updateWebsiteHero);
+router.get("/getwebsite_hero", admincontroller.getWebsiteHeroImages);
 
 module.exports = router;

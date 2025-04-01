@@ -715,6 +715,28 @@ exports.updateUser = (req, res, next) => {
     });
   });
 };
+exports.validateReferralCode = async (req, res) => {
+  const { referralCode } = req.body;
+
+  try {
+    const query = `SELECT GeneratedReferralCode FROM user WHERE GeneratedReferralCode = ?`;
+    connection.query(query, [referralCode], (err, results) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ valid: false, message: "Server error" });
+      }
+
+      if (results.length > 0) {
+        return res.json({ valid: true });
+      } else {
+        return res.json({ valid: false, message: "Invalid referral code" });
+      }
+    });
+  } catch (error) {
+    console.error("Error validating referral code:", error);
+    res.status(500).json({ valid: false, message: "Internal server error" });
+  }
+};
 
 exports.validateUser = async (req, res) => {
   const { email, phone } = req.body;
@@ -941,4 +963,36 @@ exports.VerifyOtp = (req, res) => {
       user_name: user.Name,
     });
   });
+};
+
+exports.sendContactDetails = async (req, res) => {
+  try {
+    const { name, email, serviceType, phone, message } = req.body;
+
+    if (!name || !email || !message) {
+      return res
+        .status(400)
+        .json({ error: "Name, email, and message are required." });
+    }
+
+    const emailContent = `
+      <h2>New Contact Form Submission</h2>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Service Type:</strong> ${serviceType || "N/A"}</p>
+      <p><strong>Phone:</strong> ${phone || "N/A"}</p>
+      <p><strong>Message:</strong> ${message}</p>
+    `;
+
+    await sendEmail(
+      "bunnyroyals24@gmail.com",
+      "New Contact Form Submission",
+      emailContent
+    );
+
+    res.status(200).json({ message: "Contact details sent successfully." });
+  } catch (error) {
+    console.error("Error sending contact details:", error);
+    res.status(500).json({ error: "Failed to send contact details." });
+  }
 };

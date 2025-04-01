@@ -267,6 +267,31 @@ exports.getTopicsByCourseId = (req, res) => {
       .json({ message: "Topics fetched successfully", topics: results });
   });
 };
+exports.getPackagesByCourse = (req, res) => {
+  const { course_id } = req.params; // Get course_id from request parameters
+
+  const query = `
+    SELECT DISTINCT p.package_id, p.package_name
+    FROM packages p
+    INNER JOIN package_courses pc ON p.package_id = pc.package_id
+    WHERE pc.course_id = ?;
+  `;
+
+  connection.query(query, [course_id], (err, results) => {
+    if (err) {
+      console.error("Error fetching packages:", err);
+      return res
+        .status(500)
+        .json({ message: "Internal Server Error", error: err });
+    }
+
+    res.status(200).json({ 
+      message: "Packages fetched successfully", 
+      packages: results 
+    });
+  });
+};
+
 
 exports.getCourseByCourseId = (req, res) => {
   const { course_id } = req.params;
@@ -567,5 +592,100 @@ exports.VerifyOtp = (req, res) => {
       admin_id: admin.id,
       admin_name: admin.name,
     });
+  });
+};
+
+// Controller for updating a website hero entry with 3 images
+exports.updateWebsiteHero = (req, res, next) => {
+  upload.fields([
+    { name: "image1", maxCount: 1 },
+    { name: "image2", maxCount: 1 },
+    { name: "image3", maxCount: 1 },
+  ])(req, res, (err) => {
+    if (err) {
+      return res
+        .status(400)
+        .json({ message: "Image upload failed", error: err });
+    }
+
+    const { id } = 1; // Get the ID from the request parameters
+
+    // Get the image paths (if provided)
+    const image1 = req.files.image1 ? req.files.image1[0].filename : null;
+    const image2 = req.files.image2 ? req.files.image2[0].filename : null;
+    const image3 = req.files.image3 ? req.files.image3[0].filename : null;
+
+    //Build the update query dynamically.
+    let query = "UPDATE webheroimages SET ";
+    const queryParams = [];
+
+    if (image1) {
+      query += "image1 = ?, ";
+      queryParams.push(image1);
+    }
+
+    if (image2) {
+      query += "image2 = ?, ";
+      queryParams.push(image2);
+    }
+
+    if (image3) {
+      query += "image3 = ?, ";
+      queryParams.push(image3);
+    }
+
+    //Remove the trailing comma and space.
+    query = query.slice(0, -2);
+
+    query += " WHERE id = 1;";
+    queryParams.push(id);
+
+    // SQL query to update image paths in the website_hero table
+    connection.query(query, queryParams, (err, result) => {
+      if (err) {
+        console.error("Error updating website hero entry:", err);
+        return res.status(500).json({
+          message: "An error occurred while updating the website hero entry",
+          error: err,
+        });
+      }
+
+      if (result.affectedRows === 0) {
+        return res
+          .status(404)
+          .json({ message: "Website hero entry not found" });
+      }
+
+      res.status(200).json({
+        message: "Website hero entry updated successfully",
+      });
+    });
+  });
+};
+
+exports.getWebsiteHeroImages = (req, res) => {
+  const query = "SELECT image1, image2, image3 FROM webheroimages;"; // Or add a WHERE clause if you need specific records
+
+  connection.query(query, (err, results) => {
+    if (err) {
+      console.error("Error retrieving website hero images:", err);
+      return res.status(500).json({
+        message: "An error occurred while retrieving website hero images",
+        error: err,
+      });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "No website hero images found" });
+    }
+
+    // Process the results
+    const imageNames = results.map((row) => ({
+      image1: row.image1,
+      image2: row.image2,
+      image3: row.image3,
+    }));
+
+    res.status(200).json(imageNames);
   });
 };
