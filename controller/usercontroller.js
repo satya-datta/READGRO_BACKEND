@@ -953,8 +953,9 @@ exports.VerifyOtp = (req, res) => {
     // Set token as an HTTP-only cookie
     res.cookie("UserauthToken", token, {
       httpOnly: true,
-      sameSite: "Strict",
+      sameSite: "None",
       maxAge: 2 * 60 * 60 * 1000, // 2 hours
+      secure: true,
     });
 
     // Send response with user_id, name, and token

@@ -97,7 +97,8 @@ exports.LogoutAdmin = (req, res) => {
   res.clearCookie("adminToken", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-    sameSite: "strict",
+    sameSite: "None",
+    secure: true,
   });
 
   res.status(200).json({ message: "Logout successful" });
@@ -285,13 +286,12 @@ exports.getPackagesByCourse = (req, res) => {
         .json({ message: "Internal Server Error", error: err });
     }
 
-    res.status(200).json({ 
-      message: "Packages fetched successfully", 
-      packages: results 
+    res.status(200).json({
+      message: "Packages fetched successfully",
+      packages: results,
     });
   });
 };
-
 
 exports.getCourseByCourseId = (req, res) => {
   const { course_id } = req.params;
@@ -580,8 +580,9 @@ exports.VerifyOtp = (req, res) => {
     // Set token as an HTTP-only cookie for admin authentication
     res.cookie("adminToken", token, {
       httpOnly: true,
-      sameSite: "Strict",
+      sameSite: "None",
       maxAge: 2 * 60 * 60 * 1000, // 2 hours
+      secure: true,
     });
 
     // Send response with admin details
