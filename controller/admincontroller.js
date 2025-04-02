@@ -7,12 +7,12 @@ const nodemailer = require("nodemailer");
 require("dotenv").config();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcryptjs"); 
 
 exports.authadmin = (req, res, next) => {
   const { email, password } = req.body;
   console.log("Enter authentication");
-
+   
   // Validate input
   if (!email || !password) {
     return res.status(400).json({ message: "Email and password are required" });
@@ -51,13 +51,13 @@ exports.authadmin = (req, res, next) => {
         JWT_SECRET, // Secret key
         { expiresIn: "2h" } // Token expiry
       );
-
+      console.log(token);
       // Set the token as an HTTP-only cookie
       res.cookie("adminToken", token, {
         httpOnly: true,
-        secure: true, // Only allow in HTTPS
-        sameSite: "None", // Allows cross-origin cookies
+        sameSite: "None", // Required for cross-origin cookies
         maxAge: 2 * 60 * 60 * 1000, // 2 hours
+        secure: true, // Required for HTTPS
       });
 
       // Send success response
@@ -580,9 +580,9 @@ exports.VerifyOtp = (req, res) => {
     // Set token as an HTTP-only cookie for admin authentication
     res.cookie("adminToken", token, {
       httpOnly: true,
-      sameSite: "None",
+      sameSite: "None", // Required for cross-origin cookies
       maxAge: 2 * 60 * 60 * 1000, // 2 hours
-      secure: true,
+      secure: true, // Required for HTTPS
     });
 
     // Send response with admin details
