@@ -7,12 +7,12 @@ const nodemailer = require("nodemailer");
 require("dotenv").config();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-const bcrypt = require("bcryptjs"); 
+const bcrypt = require("bcryptjs");
 
 exports.authadmin = (req, res, next) => {
   const { email, password } = req.body;
   console.log("Enter authentication");
-   
+
   // Validate input
   if (!email || !password) {
     return res.status(400).json({ message: "Email and password are required" });
@@ -71,7 +71,8 @@ exports.authadmin = (req, res, next) => {
 
 exports.validateAdminCookie = (req, res) => {
   const token = req.cookies.adminToken;
-
+  console("into auth validate");
+  console.log("admin token", token);
   // Check if token exists
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
@@ -92,6 +93,7 @@ exports.validateAdminCookie = (req, res) => {
     });
   });
 };
+
 exports.LogoutAdmin = (req, res) => {
   // Clear the adminToken cookie
   res.clearCookie("adminToken", {
