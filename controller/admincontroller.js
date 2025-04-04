@@ -58,6 +58,7 @@ exports.authadmin = (req, res, next) => {
         sameSite: "None",
         secure: true,
         maxAge: 2 * 60 * 60 * 1000,
+        path: "/",
         // domain: ".readgro-backend.onrender.com", // or your domain
       });
 
