@@ -70,6 +70,7 @@ exports.authadmin = (req, res, next) => {
 };
 
 exports.validateAdminCookie = (req, res) => {
+  console.log("Received cookies in backend:", req.cookies);
   const token = req.cookies.adminToken;
   console.log("into auth validate");
   console.log("admin token", token);
