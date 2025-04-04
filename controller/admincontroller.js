@@ -71,7 +71,7 @@ exports.authadmin = (req, res, next) => {
 
 exports.validateAdminCookie = (req, res) => {
   const token = req.cookies.adminToken;
-  console("into auth validate");
+  console.log("into auth validate");
   console.log("admin token", token);
   // Check if token exists
   if (!token) {
