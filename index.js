@@ -26,6 +26,8 @@ app.use(
     ], // Allow multiple origins
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["WWW-Authenticate"],
+
     credentials: true,
   })
 );

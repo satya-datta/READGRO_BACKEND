@@ -58,7 +58,7 @@ exports.authadmin = (req, res, next) => {
         sameSite: "None",
         secure: true,
         maxAge: 2 * 60 * 60 * 1000,
-        domain: ".readgro-backend.onrender.com", // or your domain
+        // domain: ".readgro-backend.onrender.com", // or your domain
       });
 
       // Send success response
@@ -69,33 +69,28 @@ exports.authadmin = (req, res, next) => {
     }
   );
 };
-
 exports.validateAdminCookie = (req, res) => {
-  console.log("Received cookies in backend:", req.cookies);
-  const token = req.cookies.adminToken;
-  console.log("into auth validate");
-  console.log("admin token", token);
-  // Check if token exists
+  // Get token from Authorization header
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(" ")[1]; // Format: "Bearer <token>"
+
+  console.log("Received admin token:", token);
+
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
 
-  // Verify the token
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      console.error("Token verification failed:", err);
       return res.status(403).json({ message: "Forbidden: Invalid token" });
     }
 
-    // If token verification is successful
-    console.log("Token verified successfully:", decoded);
     return res.status(200).json({
       message: "Token verified successfully",
-      admin: decoded, // { id, email }
+      admin: decoded,
     });
   });
 };
-
 exports.LogoutAdmin = (req, res) => {
   // Clear the adminToken cookie
   res.clearCookie("adminToken", {
