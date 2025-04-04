@@ -55,9 +55,10 @@ exports.authadmin = (req, res, next) => {
       // Set the token as an HTTP-only cookie
       res.cookie("adminToken", token, {
         httpOnly: true,
-        sameSite: "None", // Required for cross-origin cookies
-        maxAge: 2 * 60 * 60 * 1000, // 2 hours
-        secure: true, // Required for HTTPS
+        sameSite: "None",
+        secure: true,
+        maxAge: 2 * 60 * 60 * 1000,
+        domain: ".readgro-backend.onrender.com", // or your domain
       });
 
       // Send success response
