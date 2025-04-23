@@ -49,7 +49,7 @@ const crypto = require("crypto");
 const axios = require("axios");
 const connection = require("../backend"); // Your MySQL connection
 require("dotenv").config();
-const connection2 = require("../connection2");
+const connection2 = require("../backend");
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "SECRETKEY"; // Must be 32 bytes
 const IV_LENGTH = 16; // AES block size
 

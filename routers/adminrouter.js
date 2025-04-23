@@ -166,9 +166,10 @@ router.post("/admin-cred-send-otp", admincontroller.sendOtp);
 
 router.get("/getallcourses", admincontroller.getAllCourses);
 
-
-router.get("/getpackagebycourse/:course_id", admincontroller.getPackagesByCourse);
-
+router.get(
+  "/getpackagebycourse/:course_id",
+  admincontroller.getPackagesByCourse
+);
 
 router.get("/gettopics/:course_id", admincontroller.getTopicsByCourseId);
 router.get(

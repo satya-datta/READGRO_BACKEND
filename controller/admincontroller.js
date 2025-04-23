@@ -2,7 +2,7 @@ const connection = require("../backend");
 const jwt = require("jsonwebtoken"); // Make sure to install this package
 const cookieParser = require("cookie-parser"); // Ensure this middleware is used in your app
 const JWT_SECRET = "AUTHENTICATED"; // Store this securely in environment variables
-const connection2 = require("../connection2");
+const connection2 = require("../backend");
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
@@ -58,7 +58,7 @@ exports.authadmin = (req, res, next) => {
         sameSite: "None",
         secure: true,
         maxAge: 2 * 60 * 60 * 1000,
-        path: "/",
+        // path: "/",
         // domain: ".readgro-backend.onrender.com", // or your domain
       });
 
