@@ -280,7 +280,7 @@ exports.sendOtp = async (req, res) => {
 };
 
 // 📌 Step 2: Verify OTP and Process RazorpayX Payout
-const connection2 = require("../backend"); // Using your MySQL connection
+const connection2 = require("../connection2"); // Using your MySQL connection
 
 const { sendEmail } = require("../emailService"); // Import sendEmail function
 

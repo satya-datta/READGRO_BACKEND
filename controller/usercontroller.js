@@ -342,7 +342,7 @@ exports.loginUser = (req, res) => {
   }
 
   // Fetch user from the database
-  const userQuery = `SELECT userid, Name, Email, Password,PackageId FROM user WHERE Email = ?`;
+  const userQuery = `SELECT userid, Name, Email, Password,PackageId,Avatar FROM user WHERE Email = ?`;
 
   connection.query(userQuery, [email], async (err, results) => {
     if (err) {
@@ -369,6 +369,7 @@ exports.loginUser = (req, res) => {
         name: user.Name,
         package_id: user.PackageId,
         password: password,
+        avatar: user.Avatar,
       },
       JWT_SECRET,
       {

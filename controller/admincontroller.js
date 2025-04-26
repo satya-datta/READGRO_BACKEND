@@ -2,7 +2,7 @@ const connection = require("../backend");
 const jwt = require("jsonwebtoken"); // Make sure to install this package
 const cookieParser = require("cookie-parser"); // Ensure this middleware is used in your app
 const JWT_SECRET = "AUTHENTICATED"; // Store this securely in environment variables
-const connection2 = require("../backend");
+// const connection = require("../backend");
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
@@ -336,59 +336,91 @@ exports.getCourseByCourseId = (req, res) => {
 };
 
 const axios = require("axios");
+exports.Getadmindashboard = (req, res) => {
+  console.log("Fetching admin dashboard data...");
 
-exports.Getadmindashboard = async (req, res) => {
-  try {
-    console.log("Fetching admin dashboard data...");
+  // Initialize response data object
+  const responseData = {
+    totalUsers: 0,
+    totalPackages: 0,
+    totalCourses: 0,
+    razorpayBalance: 0,
+  };
 
-    // 📌 Fetch Total Users
-    const [users] = await connection2.execute(
-      "SELECT COUNT(*) AS totalUsers FROM user"
-    );
-
-    // 📌 Fetch Total Packages
-    const [packages] = await connection2.execute(
-      "SELECT COUNT(*) AS totalPackages FROM packages"
-    );
-
-    // 📌 Fetch Total Courses
-    const [courses] = await connection2.execute(
-      "SELECT COUNT(*) AS totalCourses FROM course"
-    );
-
-    // 📌 Fetch Razorpay Account Balance
-    let razorpayBalance = 0;
-    try {
-      const response = await axios.get(
-        "https://api.razorpay.com/v1/accounts/balance",
-        {
-          auth: { username: RAZORPAY_KEY_ID, password: RAZORPAY_KEY_SECRET },
-        }
-      );
-      razorpayBalance = response.data.balance / 100; // Convert from paisa to INR
-    } catch (error) {
-      console.error("Error fetching Razorpay balance:", error.message);
+  // 📌 Fetch Total Users
+  connection.query("SELECT COUNT(*) AS totalUsers FROM user", (err, users) => {
+    if (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({
+        message: "Internal Server Error",
+        error: err.message,
+      });
     }
 
-    // 📌 Send Response
-    res.status(200).json({
-      message: "Admin Dashboard Data Fetched Successfully",
-      data: {
-        totalUsers: users[0].totalUsers,
-        totalPackages: packages[0].totalPackages,
-        totalCourses: courses[0].totalCourses,
-        razorpayBalance: razorpayBalance, // Balance in INR
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching admin dashboard data:", error);
-    res.status(500).json({
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
+    responseData.totalUsers = users[0].totalUsers;
 
+    // 📌 Fetch Total Packages
+    connection.query(
+      "SELECT COUNT(*) AS totalPackages FROM packages",
+      (err, packages) => {
+        if (err) {
+          console.error("Error fetching packages:", err);
+          return res.status(500).json({
+            message: "Internal Server Error",
+            error: err.message,
+          });
+        }
+
+        responseData.totalPackages = packages[0].totalPackages;
+
+        // 📌 Fetch Total Courses
+        connection.query(
+          "SELECT COUNT(*) AS totalCourses FROM course",
+          (err, courses) => {
+            if (err) {
+              console.error("Error fetching courses:", err);
+              return res.status(500).json({
+                message: "Internal Server Error",
+                error: err.message,
+              });
+            }
+
+            responseData.totalCourses = courses[0].totalCourses;
+
+            // 📌 Fetch Razorpay Account Balance
+            axios
+              .get("https://api.razorpay.com/v1/accounts/balance", {
+                auth: {
+                  username: RAZORPAY_KEY_ID,
+                  password: RAZORPAY_KEY_SECRET,
+                },
+              })
+              .then((response) => {
+                responseData.razorpayBalance = response.data.balance / 100;
+
+                // 📌 Send Final Response
+                res.status(200).json({
+                  message: "Admin Dashboard Data Fetched Successfully",
+                  data: responseData,
+                });
+              })
+              .catch((error) => {
+                console.error(
+                  "Error fetching Razorpay balance:",
+                  error.message
+                );
+                // Still send response with other data even if Razorpay fails
+                res.status(200).json({
+                  message: "Admin Dashboard Data Fetched (Razorpay failed)",
+                  data: responseData,
+                });
+              });
+          }
+        );
+      }
+    );
+  });
+};
 exports.getAdminDetails = (req, res) => {
   // Query to fetch admin details
   const query = `SELECT id, email, name, phone_number FROM admin_details `;

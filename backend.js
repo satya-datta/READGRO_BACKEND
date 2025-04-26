@@ -6,6 +6,10 @@ const connection = mysql.createConnection({
   user: "root",
   password: "TuIPVtJfAolyDxCjDOGqGLNkiTOrgKYs",
   database: "railway",
+  // host:"localhost",
+  // user:"root",
+  // password:"root",
+  // database:"admin",
 });
 
 // Connect to DB

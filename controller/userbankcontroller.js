@@ -49,7 +49,7 @@ const crypto = require("crypto");
 const axios = require("axios");
 const connection = require("../backend"); // Your MySQL connection
 require("dotenv").config();
-const connection2 = require("../backend");
+const connection2 = require("../connection2");
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "SECRETKEY"; // Must be 32 bytes
 const IV_LENGTH = 16; // AES block size
 
@@ -92,7 +92,7 @@ const decrypt = (text) => {
   return decrypted.toString();
 };
 
-exports.insertUserBankDetails = async (req, res, next) => {
+exports.insertUserBankDetails = (req, res, next) => {
   const {
     user_id,
     account_holder_name,
@@ -113,50 +113,31 @@ exports.insertUserBankDetails = async (req, res, next) => {
   ) {
     return res.status(400).json({ message: "All fields are required" });
   }
-  console.log(account_number);
-  try {
-    // ✅ Step 1: Insert Bank Details in MySQL
-    const encryptedAccountNumber = encrypt(account_number);
-    const encryptedUpiId = encrypt(upi_id);
-    const query = `
-      INSERT INTO user_bank_details 
-      (user_id, account_holder_name, ifsc_code, account_number, bank_name, upi_id) 
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
 
-    const [result] = await connection2.execute(query, [
-      user_id,
-      account_holder_name,
-      ifsc_code,
-      encryptedAccountNumber,
-      bank_name,
-      encryptedUpiId,
-    ]);
+  console.log("Account number:", account_number);
 
-    const ubdid = result.insertId; // Get inserted bank details ID
-    console.log("Inserted Bank ID:", ubdid);
-
-    // ✅ Step 2: Create Contact in RazorpayX
-    const contactResponse = await axios.post(
-      "https://api.razorpay.com/v1/contacts",
-      {
-        name: account_holder_name,
-        email: `user${user_id}@example.com`, // Dummy email
-        contact: "9999999999", // Dummy phone number
-        type: "customer",
+  // Step 1: First create Razorpay contact
+  axios.post(
+    "https://api.razorpay.com/v1/contacts",
+    {
+      name: account_holder_name,
+      email: `user${user_id}@example.com`,
+      contact: "9999999999",
+      type: "customer",
+    },
+    {
+      auth: {
+        username: process.env.RAZORPAY_KEY_ID,
+        password: process.env.RAZORPAY_KEY_SECRET,
       },
-      {
-        auth: {
-          username: process.env.RAZORPAY_KEY_ID,
-          password: process.env.RAZORPAY_KEY_SECRET,
-        },
-      }
-    );
+    }
+  )
+  .then((contactResponse) => {
+    const contact_id = contactResponse.data.id;
+    console.log("Razorpay Contact ID:", contact_id);
 
-    const contact_id = contactResponse.data.id; // Razorpay Contact ID
-
-    // ✅ Step 3: Create Fund Account in RazorpayX
-    const fundAccountResponse = await axios.post(
+    // Step 2: Create Razorpay fund account
+    return axios.post(
       "https://api.razorpay.com/v1/fund_accounts",
       {
         contact_id: contact_id,
@@ -173,41 +154,79 @@ exports.insertUserBankDetails = async (req, res, next) => {
           password: process.env.RAZORPAY_KEY_SECRET,
         },
       }
-    );
+    )
+    .then((fundAccountResponse) => {
+      const fund_account_id = fundAccountResponse.data.id;
+      console.log("Razorpay Fund Account ID:", fund_account_id);
 
-    const fund_account_id = fundAccountResponse.data.id; // Razorpay Fund Account ID
+      // Step 3: Only NOW insert into database since Razorpay succeeded
+      const encryptedAccountNumber = encrypt(account_number);
+      const encryptedUpiId = encrypt(upi_id);
+      const insertQuery = `
+        INSERT INTO user_bank_details 
+        (user_id, account_holder_name, ifsc_code, account_number, bank_name, upi_id, contact_id, fund_account_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
 
-    // ✅ Step 4: Update MySQL with Contact & Fund Account IDs
-    const updateQuery = `
-      UPDATE user_bank_details 
-      SET contact_id = ?, fund_account_id = ?  
-      WHERE ubdid = ?
-    `;
-
-    await connection2.execute(updateQuery, [
-      contact_id,
-      fund_account_id,
-      ubdid,
-    ]);
-
+      return new Promise((resolve, reject) => {
+        connection.query(
+          insertQuery,
+          [
+            user_id,
+            account_holder_name,
+            ifsc_code,
+            encryptedAccountNumber,
+            bank_name,
+            encryptedUpiId,
+            contact_id,
+            fund_account_id,
+          ],
+          (err, result) => {
+            if (err) {
+              reject({ type: "DATABASE_ERROR", error: err });
+            } else {
+              resolve(result.insertId);
+            }
+          }
+        );
+      });
+    });
+  })
+  .then((ubdid) => {
+    // Success - everything completed
     res.status(201).json({
       message: "User bank details added & RazorpayX setup completed",
       ubdid: ubdid,
-      contact_id: contact_id,
-      fund_account_id: fund_account_id,
     });
-  } catch (error) {
-    console.error(
-      "Error in RazorpayX setup:",
-      error.response?.data || error.message
-    );
-    res.status(500).json({
-      message: "Error setting up RazorpayX for user",
-      error: error.response?.data || error.message,
-    });
-  }
-};
+  })
+  .catch((error) => {
+    console.error("Error in process:", error);
 
+    // Handle different error types
+    if (error.response?.data?.error?.code === 'BAD_REQUEST_ERROR') {
+      // Razorpay validation errors (like invalid IFSC)
+      res.status(400).json({
+        message: "Bank validation failed",
+        error: error.response.data.error.description,
+        details: error.response.data.error
+      });
+    } 
+    else if (error.type === "DATABASE_ERROR") {
+      // Database errors
+      res.status(500).json({
+        message: "Database operation failed",
+        error: error.error.message
+      });
+    }
+    else {
+      // Other errors
+      res.status(500).json({
+        message: "Bank setup failed",
+        error: error.response?.data || error.message
+      });
+    }
+  });
+};
 // Retrieve User Bank Details
 exports.getUserBankDetails = (req, res, next) => {
   const user_id = req.params.user_id;
