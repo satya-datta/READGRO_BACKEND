@@ -50,11 +50,11 @@ app.set("trust proxy", 1); // This is required for secure cookies on cloud
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`API working on port ${port}`);
-  connection.connect(function (err) {
-    if (err) {
-      console.error("Error connecting to MySQL:", err);
-      return;
-    }
-    console.log("Connected to MySQL successfully!");
-  });
+  // connection.connect(function (err) {
+  //   if (err) {
+  //     console.error("Error connecting to MySQL:", err);
+  //     return;
+  //   }
+  //   console.log("Connected to MySQL successfully!");
+  // });
 });

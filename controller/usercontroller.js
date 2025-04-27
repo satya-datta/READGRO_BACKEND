@@ -432,7 +432,7 @@ exports.logoutUser = (req, res) => {
   // Clear the UserauthToken cookie
   res.clearCookie("UserauthToken", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // Secure in production
+    secure: true, // Secure in production
     sameSite: "strict",
   });
 
