@@ -396,6 +396,7 @@ exports.loginUser = (req, res) => {
 };
 
 exports.validateUserCookie = (req, res) => {
+  
   let token = req.cookies.UserauthToken; // Check if token is in cookies
   if (!token) {
     // If no token in cookies, check the Authorization header

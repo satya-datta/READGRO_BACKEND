@@ -71,11 +71,9 @@ exports.authadmin = (req, res, next) => {
   );
 };
 exports.validateAdminCookie = (req, res) => {
-  // Get token from Authorization header
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(" ")[1]; // Format: "Bearer <token>"
+  const token = req.cookies.adminToken; // ✅ Read from cookie
 
-  console.log("Received admin token:", token);
+  console.log("Received admin token from cookie:", token);
 
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
@@ -92,6 +90,7 @@ exports.validateAdminCookie = (req, res) => {
     });
   });
 };
+
 exports.LogoutAdmin = (req, res) => {
   // Clear the adminToken cookie
   res.clearCookie("adminToken", {
