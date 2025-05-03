@@ -26,15 +26,12 @@
 const mysql = require("mysql2");
 
 const pool = mysql.createPool({
-  // host: "switchyard.proxy.rlwy.net",
-  // user: "root",
-  // password: "TuIPVtJfAolyDxCjDOGqGLNkiTOrgKYs",
-  // database: "railway",
-  // port: 51681,
-    host: "localhost",
+  host: "switchyard.proxy.rlwy.net",
   user: "root",
-  password: "root",
-  database: "admin",
+  password: "TuIPVtJfAolyDxCjDOGqGLNkiTOrgKYs",
+  database: "railway",
+  port: 51681,
+
   waitForConnections: true,
   connectionLimit: 10, // Adjust based on your DB plan
   queueLimit: 0,
