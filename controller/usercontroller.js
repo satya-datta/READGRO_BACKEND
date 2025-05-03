@@ -396,7 +396,6 @@ exports.loginUser = (req, res) => {
 };
 
 exports.validateUserCookie = (req, res) => {
-  
   let token = req.cookies.UserauthToken; // Check if token is in cookies
   if (!token) {
     // If no token in cookies, check the Authorization header
@@ -434,7 +433,7 @@ exports.logoutUser = (req, res) => {
   res.clearCookie("UserauthToken", {
     httpOnly: true,
     secure: true, // Secure in production
-    sameSite: "strict",
+    sameSite: "None",
   });
 
   res.status(200).json({ message: "Logout successful" });
