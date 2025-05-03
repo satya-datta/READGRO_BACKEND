@@ -71,14 +71,25 @@ exports.authadmin = (req, res, next) => {
   );
 };
 exports.validateAdminCookie = (req, res) => {
-  const token = req.cookies.adminToken; // ✅ Read from cookie
+  // Try reading from cookie first
+  let token = req.cookies.adminToken;
 
-  console.log("Received admin token from cookie:", token);
+  // If not in cookie, check Authorization header
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
+  }
 
+  console.log("Received admin token:", token);
+
+  // If still no token found
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
 
+  // Verify the token
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       return res.status(403).json({ message: "Forbidden: Invalid token" });
