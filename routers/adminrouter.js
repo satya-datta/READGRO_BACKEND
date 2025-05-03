@@ -150,7 +150,7 @@ router.post("/logout", (req, res) => {
 
   res.status(200).json({ message: "Logout successful" });
 });
-router.get("/auth/validate", admincontroller.validateAdminCookie);
+router.get("/auth/validate", admincontroller.validateAdminToken);
 
 // Protected routes (require authentication)
 // router.post("/create-course", authenticate, admincontroller.createCourse);

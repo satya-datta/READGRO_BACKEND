@@ -8,17 +8,14 @@ require("dotenv").config();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 const bcrypt = require("bcryptjs");
-
 exports.authadmin = (req, res, next) => {
   const { email, password } = req.body;
   console.log("Enter authentication");
 
-  // Validate input
   if (!email || !password) {
     return res.status(400).json({ message: "Email and password are required" });
   }
 
-  // Query the database to get the admin's hashed password
   connection.query(
     "SELECT * FROM admin_details WHERE email = ?",
     [email],
@@ -28,16 +25,14 @@ exports.authadmin = (req, res, next) => {
         return res.status(500).json({ message: "Internal Server Error" });
       }
 
-      // If no admin found
       if (results.length === 0) {
         console.log("Admin not found");
         return res.status(401).json({ message: "Unknown admin" });
       }
 
       const admin = results[0];
-
-      // Compare entered password with stored hashed password
       const passwordMatch = await bcrypt.compare(password, admin.password);
+
       if (!passwordMatch) {
         console.log("Invalid password");
         return res.status(401).json({ message: "Invalid credentials" });
@@ -45,51 +40,32 @@ exports.authadmin = (req, res, next) => {
 
       console.log("Successful authentication");
 
-      // Generate a JWT token
-      const token = jwt.sign(
-        { id: admin.id, email: admin.email }, // Payload
-        JWT_SECRET, // Secret key
-        { expiresIn: "2h" } // Token expiry
-      );
-      console.log(token);
-      // Set the token as an HTTP-only cookie
-      res.cookie("adminToken", token, {
-        httpOnly: true,
-        sameSite: "None",
-        secure: true,
-        maxAge: 2 * 60 * 60 * 1000,
-        // path: "/",
-        // domain: ".readgro-backend.onrender.com", // or your domain
+      const token = jwt.sign({ id: admin.id, email: admin.email }, JWT_SECRET, {
+        expiresIn: "2h",
       });
 
-      // Send success response
+      // ✅ Return token in response
       return res.status(200).json({
         message: "Authentication successful",
+        token,
         admin: { id: admin.id, email: admin.email, name: admin.name },
       });
     }
   );
 };
-exports.validateAdminCookie = (req, res) => {
-  // Try reading from cookie first
-  let token = req.cookies.adminToken;
+exports.validateAdminToken = (req, res) => {
+  let token = null;
+  console.log("entered into authentication");
 
-  // If not in cookie, check Authorization header
-  if (!token) {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
-    }
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
   }
 
-  console.log("Received admin token:", token);
-
-  // If still no token found
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
 
-  // Verify the token
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       return res.status(403).json({ message: "Forbidden: Invalid token" });
