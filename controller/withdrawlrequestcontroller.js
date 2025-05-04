@@ -213,7 +213,7 @@ exports.getEarnings = (req, res) => {
       SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN amount ELSE 0 END) AS last30DaysEarnings,
       SUM(amount) AS overallEarnings
     FROM wallettransactions 
-    WHERE reffer_id = ?
+    WHERE reffer_id = ? and transaction_type = "credit"
   `;
 
   connection.query(earningsQuery, [reffer_id], (err, results) => {
@@ -292,7 +292,6 @@ exports.ProcessPayout = async (req, res) => {
   if (otp !== otpStore[ADMIN_EMAIL]) {
     return res.status(400).json({ success: false, message: "Invalid OTP" });
   }
-
   const conn = await connection2.getConnection();
   try {
     // 📌 Start MySQL Transaction
@@ -354,6 +353,31 @@ exports.ProcessPayout = async (req, res) => {
       }
     });
     console.log(requestId, "request Id ");
+    // 📌 Get Wallet ID using user_id
+    const [walletRows] = await conn.execute(
+      "SELECT wallet_id FROM wallet WHERE user_id = ?",
+      [userId]
+    );
+
+    if (!walletRows.length) {
+      throw new Error("Wallet not found for the user");
+    }
+
+    const walletId = walletRows[0].wallet_id;
+
+    // 📌 Insert transaction into wallettransactions table
+    await conn.execute(
+      `INSERT INTO wallettransactions 
+    (wallet_id, amount, transaction_type, description, created_at, reffer_id) 
+   VALUES (?, ?, 'debit', ?, NOW(), ?)`,
+      [
+        walletId,
+        amount,
+        `Debited to user ${userId}`,
+
+        userId, // You said `reffer_id = user_id` in this case
+      ]
+    );
 
     // 📌 Send Approval Email
     sendEmail(

@@ -30,11 +30,13 @@ const sendEmail = async (to, subject, htmlContent) => {
   }
 };
 // Function to generate OTP
+
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
 };
 
 // Function to send OTP email
+
 const sendOTP = async (toEmail) => {
   const otp = generateOTP(); // Generate OTP
   const subject = "Your OTP Code";
