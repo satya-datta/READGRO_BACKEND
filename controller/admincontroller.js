@@ -166,7 +166,7 @@ exports.createCourse = (req, res, next) => {
       });
     }
   );
-  y;
+
 };
 
 // Create Topic
