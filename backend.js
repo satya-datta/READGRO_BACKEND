@@ -35,6 +35,7 @@ const pool = mysql.createPool({
   user: "admin",
   password: "Readgro123",
   database: "admin",
+  port: 3306,
   waitForConnections: true,
   connectionLimit: 10, // Adjust based on your DB plan
   queueLimit: 0,
