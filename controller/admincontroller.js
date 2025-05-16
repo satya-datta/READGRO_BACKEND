@@ -92,63 +92,81 @@ exports.LogoutAdmin = (req, res) => {
 
 // Create Course
 const multer = require("multer");
+const multerS3 = require("multer-s3");
 const path = require("path");
-
-// Configure multer for file upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // Directory where images will be stored
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
-  },
+const AWS = require("aws-sdk");
+// Configure AWS
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION, // e.g. 'us-east-1'
 });
 
-const upload = multer({ storage });
+// Create S3 instance
+const s3 = new AWS.S3();
+
+// Configure multer-S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    // acl: "public-read", // optional: allows public access to the uploaded image
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) {
+      const ext = path.extname(file.originalname);
+      const filename = `${Date.now()}${ext}`;
+      cb(null, filename);
+    },
+  }),
+});
 
 // Controller for creating a course
 exports.createCourse = (req, res, next) => {
-  upload.single("course_image")(req, res, (err) => {
-    if (err) {
-      return res
-        .status(400)
-        .json({ message: "Image upload failed", error: err });
-    }
+  // upload.single("course_image")(req, res, (err) => {
+  //   if (err) {
+  //     return res
+  //       .status(400)
+  //       .json({ message: "Image upload failed", error: err });
+  //   }
 
-    const { course_name, created_time, course_description, instructor } =
-      req.body;
+  if (!req.file) {
+    return res.status(400).json({ message: "Image is required." });
+  }
 
-    // Validation checks (optional)
-    if (!course_name || !course_description || !instructor) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
+  const { course_name, created_time, course_description, instructor } =
+    req.body;
 
-    // Get the image path (if provided)
-    const course_image = req.file ? req.file.filename : null;
+  // Validation checks (optional)
+  if (!course_name || !course_description || !instructor) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
 
-    // SQL query with course_image
-    const query =
-      "INSERT INTO course (course_name, created_time, course_description, instructor, course_image) VALUES (?, NOW(), ?, ?, ?);";
+  // Get the image path (if provided)
+  const course_image = req.file.location;
 
-    connection.query(
-      query,
-      [course_name, course_description, instructor, course_image],
-      (err, result) => {
-        if (err) {
-          console.error("Error creating course:", err);
-          return res.status(500).json({
-            message: "An error occurred while creating the course",
-            error: err,
-          });
-        }
+  // SQL query with course_image
+  const query =
+    "INSERT INTO course (course_name, created_time, course_description, instructor, course_image) VALUES (?, NOW(), ?, ?, ?);";
 
-        res.status(201).json({
-          message: "Course created successfully",
-          course_id: result.insertId, // Returns the ID of the newly created course
+  connection.query(
+    query,
+    [course_name, course_description, instructor, course_image],
+    (err, result) => {
+      if (err) {
+        console.error("Error creating course:", err);
+        return res.status(500).json({
+          message: "An error occurred while creating the course",
+          error: err,
         });
       }
-    );
-  });
+
+      res.status(201).json({
+        message: "Course created successfully",
+        course_id: result.insertId, // Returns the ID of the newly created course
+      });
+    }
+  );
+  y;
 };
 
 // Create Topic
@@ -627,14 +645,13 @@ exports.updateWebsiteHero = (req, res, next) => {
         .json({ message: "Image upload failed", error: err });
     }
 
-    const { id } = 1; // Get the ID from the request parameters
+    const id = 1; // Assuming you're using a hardcoded ID
 
-    // Get the image paths (if provided)
-    const image1 = req.files.image1 ? req.files.image1[0].filename : null;
-    const image2 = req.files.image2 ? req.files.image2[0].filename : null;
-    const image3 = req.files.image3 ? req.files.image3[0].filename : null;
+    // Get S3 URLs instead of filenames
+    const image1 = req.files.image1 ? req.files.image1[0].location : null;
+    const image2 = req.files.image2 ? req.files.image2[0].location : null;
+    const image3 = req.files.image3 ? req.files.image3[0].location : null;
 
-    //Build the update query dynamically.
     let query = "UPDATE webheroimages SET ";
     const queryParams = [];
 
@@ -653,13 +670,19 @@ exports.updateWebsiteHero = (req, res, next) => {
       queryParams.push(image3);
     }
 
-    //Remove the trailing comma and space.
+    if (queryParams.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No images provided for update." });
+    }
+
+    // Remove trailing comma and space
     query = query.slice(0, -2);
 
-    query += " WHERE id = 1;";
+    // Add WHERE clause
+    query += " WHERE id = ?;";
     queryParams.push(id);
 
-    // SQL query to update image paths in the website_hero table
     connection.query(query, queryParams, (err, result) => {
       if (err) {
         console.error("Error updating website hero entry:", err);
@@ -677,6 +700,7 @@ exports.updateWebsiteHero = (req, res, next) => {
 
       res.status(200).json({
         message: "Website hero entry updated successfully",
+        updatedFields: { image1, image2, image3 },
       });
     });
   });

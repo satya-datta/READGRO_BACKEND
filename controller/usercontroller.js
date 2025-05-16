@@ -1,6 +1,6 @@
-const multer = require("multer");
+
 const connection = require("../backend");
-const path = require("path");
+
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { sendEmail } = require("../emailService"); // Import email service
@@ -9,19 +9,34 @@ const saltRounds = 10; // Salt rounds for bcrypt
 
 const JWT_SECRET = "USER AUTHENTICATION";
 // Set up file storage for avatar images using multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // specify the folder to store the uploaded files
-  },
-  filename: (req, file, cb) => {
-    const fileExtension = path.extname(file.originalname);
-    const filename = Date.now() + fileExtension; // Unique filename
-    cb(null, filename);
-  },
+const multer = require("multer");
+const multerS3 = require("multer-s3");
+const path = require("path");
+const AWS = require("aws-sdk");
+// Configure AWS
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION, // e.g. 'us-east-1'
 });
 
-const upload = multer({ storage: storage });
+// Create S3 instance
+const s3 = new AWS.S3();
 
+// Configure multer-S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    // acl: "public-read", // optional: allows public access to the uploaded image
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) {
+      const ext = path.extname(file.originalname);
+      const filename = `${Date.now()}${ext}`;
+      cb(null, filename);
+    },
+  }),
+});
 // Function to calculate referral commission
 const returnCommissionMethod = (userPackageId, referrerPackageId, callback) => {
   const packageQuery = `
@@ -133,7 +148,7 @@ exports.createUser = (req, res, next) => {
       referralCode,
       password,
     } = req.body;
-    const avatar = req.file ? req.file.filename : null;
+    const avatar = req.file ? req.file.location : null;
 
     if (!name || !package_id || !email || !phone || !Address || !password) {
       return res.status(400).json({ message: "All fields are required" });
@@ -556,7 +571,7 @@ exports.updateUser = (req, res, next) => {
       referralCode,
     } = req.body;
 
-    const avatar = req.file ? req.file.filename : null; // Get the new avatar filename if provided
+    const avatar = req.file ? req.file.location : null; // Get the new avatar filename if provided
 
     // Validate required fields
     if (!userId || !name || !package_id || !email || !phone || !gender) {

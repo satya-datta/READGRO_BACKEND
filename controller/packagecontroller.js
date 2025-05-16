@@ -1,7 +1,7 @@
 const connection = require("../backend");
-
+require("dotenv").config();
 // controller/packageController.js
-const path = require("path");
+
 const { deleteFile } = require("../utils/fileUtils");
 
 // Helper function to delete old files safely
@@ -12,73 +12,72 @@ const safelyDeleteFile = (filePath) => {
     console.error("Error deleting file:", err.message);
   }
 };
-const multer = require("multer");
+// const multer = require("multer");
 
 // Configure multer storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // Ensure this folder exists
-  },
-  filename: (req, file, cb) => {
-    const fileExtension = path.extname(file.originalname);
-    const filename = Date.now() + fileExtension; // Unique filename
-    cb(null, filename);
-  },
+const AWS = require("aws-sdk");
+const multer = require("multer");
+const multerS3 = require("multer-s3");
+const path = require("path");
+
+// Configure AWS
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION, // e.g. 'us-east-1'
 });
 
-const upload = multer({ storage: storage });
+// Create S3 instance
+const s3 = new AWS.S3();
+
+// Configure multer-S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    // acl: "public-read", // optional: allows public access to the uploaded image
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) {
+      const ext = path.extname(file.originalname);
+      const filename = `${Date.now()}${ext}`;
+      cb(null, filename);
+    },
+  }),
+});
+
+// const upload = multer({ storage: storage });
 
 // Create Package with image upload
+// Add this middleware to your route
 exports.createPackage = (req, res, next) => {
   const { packageName, price, description, commission, discountPrice } =
     req.body;
-  const imageFile = req.file; // This contains the uploaded file information
 
-  if (!imageFile) {
+  if (!req.file) {
     return res.status(400).json({ message: "Image is required." });
   }
 
-  // Validation checks
-  if (
-    !packageName ||
-    !price ||
-    !description ||
-    !imageFile ||
-    !commission ||
-    !discountPrice
-  ) {
-    return res.status(400).json({
-      message:
-        "All fields, including the image and discount price, are required.",
-    });
-  }
+  const imageUrl = req.file.location; // This is the S3 image URL
 
-  // Store image path in the database
-  const imagePath = `/uploads/${imageFile.filename}`; // Path to the image file
-
-  // Insert query for the package table including image
+  // Save data in your database with imageUrl
   const query = `
-    INSERT INTO packages (package_name, package_price, description, image_path, created_time, commission, discount_price)
+    INSERT INTO packages (package_name, package_price, description, package_image, created_time, commission, discount_price)
     VALUES (?, ?, ?, ?, NOW(), ?, ?)
   `;
 
-  // Execute query
   connection.query(
     query,
-    [packageName, price, description, imagePath, commission, discountPrice], // Include the image path and discount price
+    [packageName, price, description, imageUrl, commission, discountPrice],
     (err, result) => {
       if (err) {
         console.error("Error creating package:", err);
-        return res.status(500).json({
-          message: "An error occurred while creating the package.",
-          error: err,
-        });
+        return res.status(500).json({ message: "Error occurred", error: err });
       }
 
       res.status(201).json({
         message: "Package created successfully.",
-        package_id: result.insertId, // The ID of the newly created package
-        imageUrl: imagePath, // Image URL for confirmation
+        package_id: result.insertId,
+        imageUrl,
       });
     }
   );
@@ -88,9 +87,7 @@ exports.updatePackageById = (req, res) => {
   const { package_id } = req.params;
   const { packageName, price, description, commission, discountPrice } =
     req.body;
-  const packageImage = req.file ? req.file.filename : null;
 
-  // Validate input
   if (!package_id) {
     return res.status(400).json({ message: "Package ID is required" });
   }
@@ -99,9 +96,8 @@ exports.updatePackageById = (req, res) => {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  console.log("Updating package details");
+  const packageImage = req.file ? req.file.location : null;
 
-  // If an image is uploaded, update the image along with other fields
   const query = packageImage
     ? `
       UPDATE packages 
@@ -151,6 +147,7 @@ exports.updatePackageById = (req, res) => {
     });
   });
 };
+
 exports.getCoursesByCourseIds = (req, res) => {
   const { course_ids } = req.body;
 
@@ -735,95 +732,92 @@ exports.getAllCourses = (req, res, next) => {
   });
 };
 exports.createPackageWithCourses = (req, res, next) => {
-  upload.single("packageImage")(req, res, async (err) => {
-    if (err) {
-      return res
-        .status(500)
-        .json({ message: "Error uploading package image", error: err });
-    }
+  if (!req.file) {
+    return res.status(400).json({ message: "Image is required." });
+  }
 
-    const { packageName, price, description, commission } = req.body;
-    const courses = JSON.parse(req.body.courses);
+  const imageUrl = req.file.location; // This is the S3 image URL
 
-    const imageFile = req.file; // Uploaded image file
+  const { packageName, price, description, commission, discountPrice } =
+    req.body;
+  const courses = JSON.parse(req.body.courses);
 
-    if (!imageFile) {
-      return res.status(400).json({ message: "Image is required." });
-    }
+  const imageFile = req.file; // Uploaded image file
 
-    if (
-      !packageName ||
-      !price ||
-      !description ||
-      !commission ||
-      !courses ||
-      courses.length === 0
-    ) {
-      return res.status(400).json({
-        message: "All fields, including selected courses, are required.",
-      });
-    }
+  if (!imageFile) {
+    return res.status(400).json({ message: "Image is required." });
+  }
 
-    const imageName = imageFile.filename; // Store only the image name in the database
+  if (
+    !packageName ||
+    !price ||
+    !description ||
+    !commission ||
+    !courses ||
+    courses.length === 0
+  ) {
+    return res.status(400).json({
+      message: "All fields, including selected courses, are required.",
+    });
+  }
 
-    // Insert package details into the database
-    const packageQuery = `
-      INSERT INTO packages (package_name, package_price, description, package_image, created_time, commission)
-      VALUES (?, ?, ?, ?, NOW(), ?)
+  // Insert package details into the database, including the discount price and image URL
+  const packageQuery = `
+      INSERT INTO packages (package_name, package_price, description, package_image, created_time, commission, discount_price)
+      VALUES (?, ?, ?, ?, NOW(), ?, ?)
     `;
 
-    connection.query(
-      packageQuery,
-      [packageName, price, description, imageName, commission],
-      (err, result) => {
+  connection.query(
+    packageQuery,
+    [packageName, price, description, imageUrl, commission, discountPrice],
+    (err, result) => {
+      if (err) {
+        console.error("Error creating package:", err);
+        return res.status(500).json({
+          message: "An error occurred while creating the package.",
+          error: err,
+        });
+      }
+
+      const packageId = result.insertId; // Get the newly created package ID
+
+      // Check if all provided courses exist in the database
+      const checkCoursesQuery = `SELECT course_id FROM course WHERE course_id IN (?)`;
+      connection.query(checkCoursesQuery, [courses], (err, result) => {
         if (err) {
-          console.error("Error creating package:", err);
+          console.error("Error checking courses:", err);
           return res.status(500).json({
-            message: "An error occurred while creating the package.",
+            message: "An error occurred while checking courses.",
             error: err,
           });
         }
 
-        const packageId = result.insertId; // Get the newly created package ID
+        if (result.length !== courses.length) {
+          return res
+            .status(404)
+            .json({ message: "One or more courses not found." });
+        }
 
-        // Check if all provided courses exist in the database
-        const checkCoursesQuery = `SELECT course_id FROM course WHERE course_id IN (?)`;
-        connection.query(checkCoursesQuery, [courses], (err, result) => {
+        // Prepare the mapping of package with courses
+        const mapCoursesQuery = `INSERT INTO package_courses (package_id, course_id) VALUES ?`;
+        const courseValues = courses.map((courseId) => [packageId, courseId]);
+
+        connection.query(mapCoursesQuery, [courseValues], (err) => {
           if (err) {
-            console.error("Error checking courses:", err);
+            console.error("Error mapping courses:", err);
             return res.status(500).json({
-              message: "An error occurred while checking courses.",
+              message: "An error occurred while mapping courses.",
               error: err,
             });
           }
 
-          if (result.length !== courses.length) {
-            return res
-              .status(404)
-              .json({ message: "One or more courses not found." });
-          }
-
-          // Prepare the mapping of package with courses
-          const mapCoursesQuery = `INSERT INTO package_courses (package_id, course_id) VALUES ?`;
-          const courseValues = courses.map((courseId) => [packageId, courseId]);
-
-          connection.query(mapCoursesQuery, [courseValues], (err) => {
-            if (err) {
-              console.error("Error mapping courses:", err);
-              return res.status(500).json({
-                message: "An error occurred while mapping courses.",
-                error: err,
-              });
-            }
-
-            res.status(201).json({
-              message: "Package created and courses mapped successfully.",
-              package_id: packageId,
-              imageName: imageName, // Return only the image name
-            });
+          res.status(201).json({
+            message: "Package created and courses mapped successfully.",
+            package_id: packageId,
+            imageUrl, // Return the image URL if needed for frontend
           });
         });
-      }
-    );
-  });
+      });
+    }
+  );
 };

@@ -6,28 +6,41 @@ const jwt = require("jsonwebtoken");
 // Secret key for JWT signing (use environment variables)
 const JWT_SECRET = process.env.JWT_SECRET || "AUTHENTICATED";
 
-// Create Course
 const multer = require("multer");
+const multerS3 = require("multer-s3");
 const path = require("path");
-
-// Configure multer for file upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // Directory where images will be stored
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
-  },
+const AWS = require("aws-sdk");
+// Configure AWS
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION, // e.g. 'us-east-1'
 });
 
-const upload = multer({ storage });
+// Create S3 instance
+const s3 = new AWS.S3();
+
+// Configure multer-S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    // acl: "public-read", // optional: allows public access to the uploaded image
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) {
+      const ext = path.extname(file.originalname);
+      const filename = `${Date.now()}${ext}`;
+      cb(null, filename);
+    },
+  }),
+});
 router.put(
   "/updatecoursedetails/:course_id",
   upload.single("course_image"),
   (req, res) => {
     const { course_id } = req.params;
     const { course_name, course_description, instructor } = req.body;
-    const course_image = req.file ? req.file.filename : null;
+    const course_image = req.file ? req.file.location : null;
 
     // Validate input
     if (!course_id) {
@@ -157,7 +170,11 @@ router.get("/auth/validate", admincontroller.validateAdminToken);
 // router.get("/getallcourses", authenticate, admincontroller.getAllCourses);
 // router.get("/gettopics/:course_id", authenticate, admincontroller.getTopicsByCourseId);
 // router.get("/getspecific_course/:course_id", authenticate, admincontroller.getCourseByCourseId);
-router.post("/create-course", admincontroller.createCourse);
+router.post(
+  "/create-course",
+  upload.single("course_image"),
+  admincontroller.createCourse
+);
 
 router.get("/getadmindashboard", admincontroller.Getadmindashboard);
 router.get("/getadmindetails", admincontroller.getAdminDetails);

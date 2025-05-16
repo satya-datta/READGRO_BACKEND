@@ -1,22 +1,30 @@
-const path = require('path');
-const multer = require('multer');
-
-// Set up storage for Multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '..', '..', 'uploads'); // Path relative to the project root
-    cb(null, uploadPath); // Save images in the uploads folder
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname); // Get file extension
-    const filename = Date.now() + ext; // Unique filename using timestamp
-    cb(null, filename);
-  },
+const multer = require("multer");
+const multerS3 = require("multer-s3");
+const path = require("path");
+const AWS = require("aws-sdk");
+// Configure AWS
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION, // e.g. 'us-east-1'
 });
 
-const upload = multer({ 
-  storage: storage, 
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+// Create S3 instance
+const s3 = new AWS.S3();
+
+// Configure multer-S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    // acl: "public-read", // optional: allows public access to the uploaded image
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) {
+      const ext = path.extname(file.originalname);
+      const filename = `${Date.now()}${ext}`;
+      cb(null, filename);
+    },
+  }),
 });
 
 module.exports = upload;

@@ -1,26 +1,45 @@
 // routes/packageRouter.js
 const express = require("express");
 const connection = require("../backend");
-const multer = require("multer");
+// const multer = require("multer");
+require("dotenv").config();
 const packageController = require("../controller/packagecontroller");
 const validatePackage = require("../middlewares/validatePackage");
 // const upload = require("../middlewares/upload"); // Multer upload instance
 const Packagerouter = express.Router();
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // Folder to save the image
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
+// const AWS = require("aws-sdk");
+const multer = require("multer");
+const multerS3 = require("multer-s3");
+const path = require("path");
+const AWS = require("aws-sdk");
+// Configure AWS
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION, // e.g. 'us-east-1'
 });
 
-const upload = multer({ storage: storage });
+// Create S3 instance
+const s3 = new AWS.S3();
 
+// Configure multer-S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    // acl: "public-read", // optional: allows public access to the uploaded image
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) {
+      const ext = path.extname(file.originalname);
+      const filename = `${Date.now()}${ext}`;
+      cb(null, filename);
+    },
+  }),
+});
 // Route to create package
 Packagerouter.post(
   "/create-package",
-  upload.single("image"),
+  upload.single("packageImage"),
   validatePackage,
   packageController.createPackage
 );
@@ -30,6 +49,7 @@ Packagerouter.get("/getallpackages", packageController.getAllPackages);
 Packagerouter.post("/course-mapping", packageController.mapCoursesToPackage);
 Packagerouter.post(
   "/create-package_withcourses",
+  upload.single("packageImage"),
   packageController.createPackageWithCourses
 );
 
