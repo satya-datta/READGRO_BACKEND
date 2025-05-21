@@ -78,6 +78,10 @@ Userrouter.post("/verifyuser-otp", Usercontroller.VerifyOtp);
 Userrouter.post("/sendcontact", Usercontroller.sendContactDetails);
 
 Userrouter.get("/getuser_details/:user_id", Usercontroller.getUserById);
+Userrouter.get(
+  "/getsponseordetails/:reffercode",
+  Usercontroller.getSponsorDetailsByReferralCode
+);
 Userrouter.post("/validate_user", Usercontroller.validateUser);
 Userrouter.put("/update_user/:user_id", (req, res, next) => {
   // Handle avatar upload

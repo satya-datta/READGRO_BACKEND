@@ -1,4 +1,3 @@
-
 const connection = require("../backend");
 
 const jwt = require("jsonwebtoken");
@@ -512,6 +511,40 @@ exports.getUserById = (req, res) => {
     });
   });
 };
+exports.getSponsorDetailsByReferralCode = (req, res) => {
+  const referrCode = req.params.reffercode;
+
+  if (!referrCode) {
+    return res.status(400).json({ message: "Referral code is required" });
+  }
+
+  const query = `
+    SELECT Email AS email, Phone AS phone
+    FROM user
+    WHERE GeneratedReferralCode = ?
+    LIMIT 1
+  `;
+
+  connection.query(query, [referrCode], (err, results) => {
+    if (err) {
+      console.error("Error fetching sponsor details:", err);
+      return res
+        .status(500)
+        .json({ message: "Error fetching sponsor details" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Sponsor not found" });
+    }
+
+    const sponsor = results[0];
+    res.status(200).json({
+      email: sponsor.email,
+      phone: sponsor.phone,
+    });
+  });
+};
+
 exports.getUsersList = (req, res) => {
   // Query to fetch the required user details along with the wallet amount
   const usersQuery = `
