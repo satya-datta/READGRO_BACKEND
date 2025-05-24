@@ -380,16 +380,20 @@ exports.ProcessPayout = async (req, res) => {
     );
 
     // 📌 Send Approval Email
-    sendEmail(
-      userEmail,
-      "Withdrawal Approved",
-      `
-      <h3>Dear User,</h3>
-      <p>Your withdrawal request of <b>₹${amount}</b> has been <b>Approved</b> and processed successfully.</p>
-      <p>Transaction ID: ${response.data.id}</p>
-      <p>Thank you for using our service.</p>
-    `
-    );
+    const withdrawalEmailContent = `
+  <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
+    <h2 style="font-size:28px;">Withdrawal Approved</h2>
+    <p style="font-size:18px;">Dear User,</p>
+    <p style="font-size:16px;">Your withdrawal request of <b>₹${amount}</b> has been <b>approved</b> and processed successfully.</p>
+    <p style="font-size:16px;">Transaction ID: <b>${response.data.id}</b></p>
+    <hr style="margin:20px 0;border:none;border-top:1px solid rgba(255,255,255,0.3);">
+    <p style="font-size:16px;">Thank you for using our service.<br>We appreciate your trust in ReadGro.</p>
+    <p style="margin-top:30px;font-size:14px;color:#555;">— The ReadGro Team</p>
+  </div>
+`;
+
+    sendEmail(userEmail, "Withdrawal Approved", withdrawalEmailContent);
 
     await conn.commit();
     res.json({
@@ -421,16 +425,24 @@ exports.ProcessPayout = async (req, res) => {
     });
 
     // 📌 Send Rejection Email
-    sendEmail(
-      userEmail,
-      "Withdrawal Rejected",
-      `
-      <h3>Dear User,</h3>
-      <p>Your withdrawal request of <b>₹${amount}</b> has been <b>Rejected</b>.</p>
-      <p>The amount has been refunded to your wallet.</p>
-      <p>If you have any questions, please contact support.</p>
-    `
-    );
+  const withdrawalRejectedEmailContent = `
+  <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
+    <h2 style="font-size:28px;">Withdrawal Rejected</h2>
+    <p style="font-size:18px;">Dear User,</p>
+    <p style="font-size:16px;">Your withdrawal request of <b>₹${amount}</b> has been <b>rejected</b>.</p>
+    <p style="font-size:16px;">The amount has been refunded to your wallet.</p>
+    <hr style="margin:20px 0;border:none;border-top:1px solid rgba(255,255,255,0.3);">
+    <p style="font-size:16px;">If you have any questions, please contact support.<br>We're here to help you.</p>
+    <p style="margin-top:30px;font-size:14px;color:#555;">— The ReadGro Team</p>
+  </div>
+`;
+
+sendEmail(
+  userEmail,
+  "Withdrawal Rejected",
+  withdrawalRejectedEmailContent
+);
 
     res.status(500).json({
       success: false,

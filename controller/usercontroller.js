@@ -210,10 +210,16 @@ exports.createUser = (req, res, next) => {
 
             // ✅ Send email after successful signup
             const signupEmailContent = `
-              <h2>Welcome to Our Platform, ${name}!</h2>
-              <p>You have successfully signed up. Your account is now active.</p>
-              <p>Enjoy our services.</p>
-            `;
+  <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
+    <h2 style="font-size:28px;">Welcome to Our Platform, ${name}!</h2>
+    <p style="font-size:18px;">You have successfully signed up.<br>Your account is now active.</p>
+    <hr style="margin:20px 0;border:none;border-top:1px solid rgba(255,255,255,0.3);">
+    <p style="font-size:16px;">Enjoy our services.<br>We’re excited to have you on board!</p>
+    <p style="margin-top:30px;font-size:14px;color:#555;">— The ReadGro Team</p>
+  </div>
+`;
+
             sendEmail(
               email,
               "You are successfully signed up!",
@@ -302,12 +308,17 @@ exports.createUser = (req, res, next) => {
                                     });
                                   }
                                   console.log(userId);
-                                  // ✅ Send email when referral commission is credited
                                   const referralEmailContent = `
-                          <h2>Referral Bonus Credited!</h2>
-                          <p>Congratulations! You have earned a referral bonus of ₹${referralCommission}.</p>
-                          <p>Keep referring and earn more!</p>
-                        `;
+  <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
+    <h2 style="font-size:28px;">Referral Bonus Credited!</h2>
+    <p style="font-size:18px;">Congratulations! You have earned a referral bonus of ₹${referralCommission}.</p>
+    <hr style="margin:20px 0;border:none;border-top:1px solid rgba(255,255,255,0.3);">
+    <p style="font-size:16px;">Keep referring your friends and earn even more rewards.</p>
+    <p style="margin-top:30px;font-size:14px;color:#555;">— The ReadGro Team</p>
+  </div>
+`;
+
                                   sendEmail(
                                     referrerEmail,
                                     "Referral Bonus Credited!",
@@ -536,7 +547,7 @@ exports.getSponsorDetailsByReferralCode = (req, res) => {
     if (results.length === 0) {
       return res.status(404).json({ message: "Sponsor not found" });
     }
-    
+
     const sponsor = results[0];
     res.status(200).json({
       name: sponsor.name,
@@ -1038,7 +1049,7 @@ exports.sendContactDetails = async (req, res) => {
     `;
 
     await sendEmail(
-      "bunnyroyals24@gmail.com",
+      "readgroofficial@gmail.com",
       "New Contact Form Submission",
       emailContent
     );
