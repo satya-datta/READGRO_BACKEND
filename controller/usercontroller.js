@@ -519,7 +519,7 @@ exports.getSponsorDetailsByReferralCode = (req, res) => {
   }
 
   const query = `
-    SELECT Email AS email, Phone AS phone
+    SELECT Name AS name, Phone AS phone
     FROM user
     WHERE GeneratedReferralCode = ?
     LIMIT 1
@@ -536,10 +536,10 @@ exports.getSponsorDetailsByReferralCode = (req, res) => {
     if (results.length === 0) {
       return res.status(404).json({ message: "Sponsor not found" });
     }
-
+    
     const sponsor = results[0];
     res.status(200).json({
-      email: sponsor.email,
+      name: sponsor.name,
       phone: sponsor.phone,
     });
   });
