@@ -22,8 +22,8 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:3000",
-      "https://read-gro-vock.vercel.app",
-      "https://read-gro-p29o.vercel.app",
+      "https://readgro.com",
+      "https://www.readgro.com",
       "https://read-gro-fm6j.vercel.app",
     ], // Allow multiple origins
     methods: ["GET", "POST", "PUT", "DELETE"],
