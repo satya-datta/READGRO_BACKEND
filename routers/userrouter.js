@@ -150,7 +150,7 @@ Userrouter.get("/getteam/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     console.log(userId);
-    // Step 1: Get the user's referral code
+
     connection.query(
       "SELECT GeneratedReferralCode FROM user WHERE UserId = ?",
       [userId],
@@ -168,33 +168,38 @@ Userrouter.get("/getteam/:userId", async (req, res) => {
 
         const referralCode = userResult[0].GeneratedReferralCode;
 
-        // Step 2: Find all referred users
         const teamQuery = `
-            SELECT 
-                u.UserId AS userId, 
-                u.Name AS name, 
-                u.Email AS email, 
-                u.Phone AS phone, 
-                u.created_date AS enrollmentDate, 
-                p.package_name AS packageName, 
-            
-                w.amount AS referralAmount
-            FROM user u
-            JOIN packages p ON u.PackageId = p.package_id
-           LEFT JOIN wallettransactions w ON w.user_id = u.UserId AND w.transaction_type = 'credit'
+          SELECT 
+            u.UserId AS userId, 
+            u.Name AS name, 
+            u.Email AS email, 
+            u.Phone AS phone, 
+            u.created_date AS enrollmentDate, 
+            p.package_name AS packageName, 
+            w.amount AS referralAmount
+          FROM user u
+          JOIN packages p ON u.PackageId = p.package_id
+          LEFT JOIN wallettransactions w 
+            ON w.user_id = u.UserId 
+            AND w.transaction_type = 'credit' 
+            AND w.reffer_id = ?
+          WHERE u.refferCode = ?
+        `;
 
-            WHERE u.refferCode = ?`;
+        connection.query(
+          teamQuery,
+          [userId, referralCode],
+          (err, teamMembers) => {
+            if (err) {
+              console.error("Error fetching team members:", err);
+              return res
+                .status(500)
+                .json({ message: "Database error", error: err });
+            }
 
-        connection.query(teamQuery, [referralCode], (err, teamMembers) => {
-          if (err) {
-            console.error("Error fetching team members:", err);
-            return res
-              .status(500)
-              .json({ message: "Database error", error: err });
+            res.json({ team: teamMembers });
           }
-
-          res.json({ team: teamMembers });
-        });
+        );
       }
     );
   } catch (error) {
