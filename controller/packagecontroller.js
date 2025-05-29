@@ -702,7 +702,12 @@ exports.getPackageById = (req, res, next) => {
 
 exports.getCourseMapping = (req, res, next) => {
   const packageId = req.params.package_id;
-  const query = "SELECT course_id FROM package_courses WHERE package_id = ?";
+  const query = `
+    SELECT course_id 
+    FROM package_courses 
+    WHERE package_id = ? 
+    ORDER BY map_id ASC
+  `;
 
   connection.query(query, [packageId], (err, results) => {
     if (err) {
@@ -713,7 +718,7 @@ exports.getCourseMapping = (req, res, next) => {
       });
     }
 
-    res.status(200).json(results); // Send back only course_id values
+    res.status(200).json(results); // Send back course_id values ordered by map_id
   });
 };
 
