@@ -419,7 +419,40 @@ exports.loginUser = (req, res) => {
     });
   });
 };
+exports.validatePassword = (req, res) => {
+  const { user_id, password } = req.body;
 
+  if (!user_id || !password) {
+    return res
+      .status(400)
+      .json({ message: "User ID and password are required" });
+  }
+
+  const query = `SELECT Password FROM user WHERE userid = ?`;
+
+  connection.query(query, [user_id], async (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Database error", error: err });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const hashedPassword = results[0].Password;
+
+    try {
+      const isMatch = await bcrypt.compare(password, hashedPassword);
+      if (!isMatch) {
+        return res.status(401).json({ message: "Old Password incorrect" });
+      }
+
+      res.status(200).json({ success: true, message: "Password is valid" });
+    } catch (error) {
+      res.status(500).json({ message: "Error validating password", error });
+    }
+  });
+};
 exports.validateUserCookie = (req, res) => {
   let token = req.cookies.UserauthToken; // Check if token is in cookies
   if (!token) {

@@ -30,42 +30,43 @@ const upload = multer({
   }),
 });
 Userrouter.post("/create-user", Usercontroller.createUser);
-
+Userrouter.post("/validate-password", Usercontroller.validatePassword);
 Userrouter.get("/getallusers", (req, res) => {
-  // Query to fetch the required user details along with the wallet amount
-  const usersQuery = `
+  const query = `
     SELECT 
       u.userId AS userId,
       u.Name AS Name,
       u.GeneratedReferralCode AS GeneratedReferralCode,
-      w.balance AS balance
+      w.balance AS balance,
+      COUNT(wr.id) AS withdrawalCount,
+      MAX(wr.created_at) AS latestWithdrawal
     FROM user u
     LEFT JOIN wallet w ON u.userId = w.user_id
+    LEFT JOIN withdrawal_requests wr ON u.userId = wr.user_id
+    GROUP BY u.userId
   `;
 
-  connection.query(usersQuery, (err, results) => {
+  connection.query(query, (err, results) => {
     if (err) {
-      console.error("Error fetching users list:", err);
       return res
         .status(500)
-        .json({ message: "Error fetching users list", error: err });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ message: "No users found" });
+        .json({ message: "Error fetching users", error: err });
     }
 
     res.status(200).json({
-      message: "Users list retrieved successfully",
+      message: "Users fetched",
       users: results.map((user) => ({
         userId: user.userId,
         Name: user.Name,
         generatedReferralCode: user.GeneratedReferralCode,
-        balance: user.balance || 0, // Default to 0 if no wallet record exists
+        balance: user.balance || 0,
+        withdrawalCount: user.withdrawalCount,
+        latestWithdrawal: user.latestWithdrawal,
       })),
     });
   });
 });
+
 Userrouter.post("/userauth", Usercontroller.loginUser);
 Userrouter.get("/auth/uservalidate", Usercontroller.validateUserCookie);
 Userrouter.post("/userlogout", Usercontroller.logoutUser);
