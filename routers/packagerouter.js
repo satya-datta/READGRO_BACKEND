@@ -80,11 +80,9 @@ Packagerouter.get(
 //   "/edit_package/:package_id",
 //   packageController.getPackageById
 // );
-
 Packagerouter.post("/getcoursedetails", (req, res) => {
   const { course_ids } = req.body;
 
-  // Validate input
   if (!Array.isArray(course_ids) || course_ids.length === 0) {
     return res
       .status(400)
@@ -93,11 +91,16 @@ Packagerouter.post("/getcoursedetails", (req, res) => {
 
   console.log("Fetching course details for multiple course_ids:", course_ids);
 
-  // Create placeholders for SQL query based on the number of course_ids
   const placeholders = course_ids.map(() => "?").join(",");
-  const query = `SELECT * FROM course WHERE course_id IN (${placeholders})`;
+  const query = `
+    SELECT * FROM course 
+    WHERE course_id IN (${placeholders}) 
+    ORDER BY FIELD(course_id, ${placeholders})
+  `;
 
-  connection.query(query, course_ids, (err, results) => {
+  const values = [...course_ids, ...course_ids]; // For IN and FIELD()
+
+  connection.query(query, values, (err, results) => {
     if (err) {
       console.error("Error fetching courses:", err);
       return res
@@ -111,7 +114,6 @@ Packagerouter.post("/getcoursedetails", (req, res) => {
         .json({ message: "No courses found for the provided IDs" });
     }
 
-    // Map through the results and format the response
     const courses = results.map((course) => {
       const {
         course_id,
