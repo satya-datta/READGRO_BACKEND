@@ -27,13 +27,22 @@ exports.CreateWR = (req, res) => {
         .json({ message: "Wallet not found for this user" });
     }
 
-    const walletBalance = results[0].balance;
-    console.log(walletBalance, " withdraw amount =",withdrawAmount);
-    // Step 2: Check if balance is sufficient
-    if (walletBalance < withdrawAmount) {
-      return res.status(400).json({ message: "Insufficient funds in wallet" });
-    }
+const walletBalance = parseFloat(results[0].balance);
+const amountToWithdraw = parseFloat(withdrawAmount);
 
+// Log actual values and types for safety
+console.log(
+  `Wallet Balance: ${walletBalance} (${typeof walletBalance}), Withdraw Amount: ${amountToWithdraw} (${typeof amountToWithdraw})`
+);
+
+// Round both values to handle floating-point errors
+const walletCents = Math.round(walletBalance * 100);
+const withdrawCents = Math.round(amountToWithdraw * 100);
+
+// Compare
+if (walletCents < withdrawCents) {
+  return res.status(400).json({ message: "Insufficient funds in wallet" });
+}
     // Step 3: Insert withdrawal request with status 'pending' and current timestamp
     const insertQuery =
       "INSERT INTO withdrawal_requests (user_id, amount, status, created_at) VALUES (?, ?, 'pending', NOW())";
