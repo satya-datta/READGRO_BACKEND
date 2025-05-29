@@ -2,11 +2,11 @@ const mysql = require("mysql2");
 
 const connection = mysql
   .createPool({
-    host: "switchyard.proxy.rlwy.net",
-    user: "root",
-    password: "TuIPVtJfAolyDxCjDOGqGLNkiTOrgKYs",
-    database: "railway",
-    port: 51681, // Important if not default 3306
+  host: "database-1.c0jsqu0427x8.us-east-1.rds.amazonaws.com",
+  user: "admin",
+  password: "Readgro123",
+  database: "admin",
+    port: 3306, // Important if not default 3306
     // host: "localhost",
     // user: "root",
     // password: "root",
@@ -17,6 +17,6 @@ const connection = mysql
   })
   .promise();
 
-console.log("✅ Connected to Railway MySQL (Promise-based Connection)");
+console.log("✅ Connected to AWS MySQL (Promise-based Connection)");
 
 module.exports = connection;

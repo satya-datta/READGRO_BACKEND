@@ -28,7 +28,7 @@ exports.CreateWR = (req, res) => {
     }
 
     const walletBalance = results[0].balance;
-
+    console.log(walletBalance, " withdraw amount =",withdrawAmount);
     // Step 2: Check if balance is sufficient
     if (walletBalance < withdrawAmount) {
       return res.status(400).json({ message: "Insufficient funds in wallet" });
