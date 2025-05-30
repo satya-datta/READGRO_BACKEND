@@ -42,7 +42,7 @@ Userrouter.get("/getallusers", (req, res) => {
       MAX(wr.created_at) AS latestWithdrawal
     FROM user u
     LEFT JOIN wallet w ON u.userId = w.user_id
-    LEFT JOIN withdrawal_requests wr ON u.userId = wr.user_id
+    LEFT JOIN withdrawal_requests wr ON u.userId = wr.user_id and wr.status="pending"
     GROUP BY u.userId
   `;
 
