@@ -36,6 +36,7 @@ Userrouter.get("/getallusers", (req, res) => {
     SELECT 
       u.userId AS userId,
       u.Name AS Name,
+      u.Phone As Phone,
       u.GeneratedReferralCode AS GeneratedReferralCode,
       w.balance AS balance,
       COUNT(wr.id) AS withdrawalCount,
@@ -58,6 +59,7 @@ Userrouter.get("/getallusers", (req, res) => {
       users: results.map((user) => ({
         userId: user.userId,
         Name: user.Name,
+        Phone: user.Phone,
         generatedReferralCode: user.GeneratedReferralCode,
         balance: user.balance || 0,
         withdrawalCount: user.withdrawalCount,
