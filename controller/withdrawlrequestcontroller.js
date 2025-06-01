@@ -27,22 +27,22 @@ exports.CreateWR = (req, res) => {
         .json({ message: "Wallet not found for this user" });
     }
 
-const walletBalance = parseFloat(results[0].balance);
-const amountToWithdraw = parseFloat(withdrawAmount);
+    const walletBalance = parseFloat(results[0].balance);
+    const amountToWithdraw = parseFloat(withdrawAmount);
 
-// Log actual values and types for safety
-console.log(
-  `Wallet Balance: ${walletBalance} (${typeof walletBalance}), Withdraw Amount: ${amountToWithdraw} (${typeof amountToWithdraw})`
-);
+    // Log actual values and types for safety
+    console.log(
+      `Wallet Balance: ${walletBalance} (${typeof walletBalance}), Withdraw Amount: ${amountToWithdraw} (${typeof amountToWithdraw})`
+    );
 
-// Round both values to handle floating-point errors
-const walletCents = Math.round(walletBalance * 100);
-const withdrawCents = Math.round(amountToWithdraw * 100);
+    // Round both values to handle floating-point errors
+    const walletCents = Math.round(walletBalance * 100);
+    const withdrawCents = Math.round(amountToWithdraw * 100);
 
-// Compare
-if (walletCents < withdrawCents) {
-  return res.status(400).json({ message: "Insufficient funds in wallet" });
-}
+    // Compare
+    if (walletCents < withdrawCents) {
+      return res.status(400).json({ message: "Insufficient funds in wallet" });
+    }
     // Step 3: Insert withdrawal request with status 'pending' and current timestamp
     const insertQuery =
       "INSERT INTO withdrawal_requests (user_id, amount, status, created_at) VALUES (?, ?, 'pending', NOW())";
@@ -296,6 +296,7 @@ const { sendEmail } = require("../emailService"); // Import sendEmail function
 exports.ProcessPayout = async (req, res) => {
   const { userId, amount, otp, requestId } = req.body;
   console.log("Processing payout for userId:", userId);
+  let userEmail; // ✅ Make userEmail available globally
 
   // Verify OTP
   if (otp !== otpStore[ADMIN_EMAIL]) {
@@ -317,7 +318,7 @@ exports.ProcessPayout = async (req, res) => {
         .status(400)
         .json({ success: false, message: "User not found" });
     }
-    const userEmail = user[0].email;
+    userEmail = user[0].email;
 
     // 📌 Fetch Fund Account ID from `user_bank_details`
     const [bankDetails] = await conn.execute(
@@ -348,7 +349,10 @@ exports.ProcessPayout = async (req, res) => {
       "https://api.razorpay.com/v1/payouts",
       payoutData,
       {
-        auth: { username: RAZORPAY_KEY_ID, password: RAZORPAY_KEY_SECRET },
+        auth: {
+          username: process.env.RAZORPAYX_TESTKEY_ID,
+          password: process.env.RAZORPAYX_TESTKEY_SECRET,
+        },
         headers: { "Content-Type": "application/json" },
       }
     );
@@ -434,7 +438,7 @@ exports.ProcessPayout = async (req, res) => {
     });
 
     // 📌 Send Rejection Email
-  const withdrawalRejectedEmailContent = `
+    const withdrawalRejectedEmailContent = `
   <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
     <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
     <h2 style="font-size:28px;">Withdrawal Rejected</h2>
@@ -447,11 +451,7 @@ exports.ProcessPayout = async (req, res) => {
   </div>
 `;
 
-sendEmail(
-  userEmail,
-  "Withdrawal Rejected",
-  withdrawalRejectedEmailContent
-);
+    sendEmail(userEmail, "Withdrawal Rejected", withdrawalRejectedEmailContent);
 
     res.status(500).json({
       success: false,

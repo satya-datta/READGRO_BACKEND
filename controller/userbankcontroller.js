@@ -117,115 +117,115 @@ exports.insertUserBankDetails = (req, res, next) => {
   console.log("Account number:", account_number);
 
   // Step 1: First create Razorpay contact
-  axios.post(
-    "https://api.razorpay.com/v1/contacts",
-    {
-      name: account_holder_name,
-      email: `user${user_id}@example.com`,
-      contact: "9999999999",
-      type: "customer",
-    },
-    {
-      auth: {
-        username: process.env.RAZORPAY_KEY_ID,
-        password: process.env.RAZORPAY_KEY_SECRET,
-      },
-    }
-  )
-  .then((contactResponse) => {
-    const contact_id = contactResponse.data.id;
-    console.log("Razorpay Contact ID:", contact_id);
-
-    // Step 2: Create Razorpay fund account
-    return axios.post(
-      "https://api.razorpay.com/v1/fund_accounts",
+  axios
+    .post(
+      "https://api.razorpay.com/v1/contacts",
       {
-        contact_id: contact_id,
-        account_type: "bank_account",
-        bank_account: {
-          name: account_holder_name,
-          ifsc: ifsc_code,
-          account_number: account_number,
-        },
+        name: account_holder_name,
+        email: `user${user_id}@example.com`,
+        contact: "9999999999",
+        type: "customer",
       },
       {
         auth: {
-          username: process.env.RAZORPAY_KEY_ID,
-          password: process.env.RAZORPAY_KEY_SECRET,
+          username: process.env.RAZORPAYX_TESTKEY_ID,
+          password: process.env.RAZORPAYX_TESTKEY_SECRET,
         },
       }
     )
-    .then((fundAccountResponse) => {
-      const fund_account_id = fundAccountResponse.data.id;
-      console.log("Razorpay Fund Account ID:", fund_account_id);
+    .then((contactResponse) => {
+      const contact_id = contactResponse.data.id;
+      console.log("Razorpay Contact ID:", contact_id);
 
-      // Step 3: Only NOW insert into database since Razorpay succeeded
-      const encryptedAccountNumber = encrypt(account_number);
-      const encryptedUpiId = encrypt(upi_id);
-      const insertQuery = `
+      // Step 2: Create Razorpay fund account
+      return axios
+        .post(
+          "https://api.razorpay.com/v1/fund_accounts",
+          {
+            contact_id: contact_id,
+            account_type: "bank_account",
+            bank_account: {
+              name: account_holder_name,
+              ifsc: ifsc_code,
+              account_number: account_number,
+            },
+          },
+          {
+            auth: {
+              username: process.env.RAZORPAYX_TESTKEY_ID,
+              password: process.env.RAZORPAYX_TESTKEY_SECRET,
+            },
+          }
+        )
+        .then((fundAccountResponse) => {
+          const fund_account_id = fundAccountResponse.data.id;
+          console.log("Razorpay Fund Account ID:", fund_account_id);
+
+          // Step 3: Only NOW insert into database since Razorpay succeeded
+          const encryptedAccountNumber = encrypt(account_number);
+          const encryptedUpiId = encrypt(upi_id);
+          const insertQuery = `
         INSERT INTO user_bank_details 
         (user_id, account_holder_name, ifsc_code, account_number, bank_name, upi_id, contact_id, fund_account_id) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
-      return new Promise((resolve, reject) => {
-        connection.query(
-          insertQuery,
-          [
-            user_id,
-            account_holder_name,
-            ifsc_code,
-            encryptedAccountNumber,
-            bank_name,
-            encryptedUpiId,
-            contact_id,
-            fund_account_id,
-          ],
-          (err, result) => {
-            if (err) {
-              reject({ type: "DATABASE_ERROR", error: err });
-            } else {
-              resolve(result.insertId);
-            }
-          }
-        );
+          return new Promise((resolve, reject) => {
+            connection.query(
+              insertQuery,
+              [
+                user_id,
+                account_holder_name,
+                ifsc_code,
+                encryptedAccountNumber,
+                bank_name,
+                encryptedUpiId,
+                contact_id,
+                fund_account_id,
+              ],
+              (err, result) => {
+                if (err) {
+                  reject({ type: "DATABASE_ERROR", error: err });
+                } else {
+                  resolve(result.insertId);
+                }
+              }
+            );
+          });
+        });
+    })
+    .then((ubdid) => {
+      // Success - everything completed
+      res.status(201).json({
+        message: "User bank details added & RazorpayX setup completed",
+        ubdid: ubdid,
       });
-    });
-  })
-  .then((ubdid) => {
-    // Success - everything completed
-    res.status(201).json({
-      message: "User bank details added & RazorpayX setup completed",
-      ubdid: ubdid,
-    });
-  })
-  .catch((error) => {
-    console.error("Error in process:", error);
+    })
+    .catch((error) => {
+      console.error("Error in process:", error);
 
-    // Handle different error types
-    if (error.response?.data?.error?.code === 'BAD_REQUEST_ERROR') {
-      // Razorpay validation errors (like invalid IFSC)
-      res.status(400).json({
-        message: "Bank validation failed",
-        error: error.response.data.error.description,
-        details: error.response.data.error
-      });
-    } 
-    else if (error.type === "DATABASE_ERROR") {
-      // Database errors
-      res.status(500).json({
-        message: "Database operation failed",
-        error: error.error.message
-      });
-    }
-    else {
-      // Other errors
-      res.status(500).json({
-        message: "Bank setup failed",
-        error: error.response?.data || error.message
-      });
-    }
-  });
+      // Handle different error types
+      if (error.response?.data?.error?.code === "BAD_REQUEST_ERROR") {
+        // Razorpay validation errors (like invalid IFSC)
+        res.status(400).json({
+          message: "Bank validation failed",
+          error: error.response.data.error.description,
+          details: error.response.data.error,
+        });
+      } else if (error.type === "DATABASE_ERROR") {
+        // Database errors
+        res.status(500).json({
+          message: "Database operation failed",
+          error: error.error.message,
+        });
+      } else {
+        // Other errors
+        res.status(500).json({
+          message: "Bank setup failed",
+          error: error.response?.data || error.message,
+        });
+      }
+    });
 };
 // Retrieve User Bank Details
 exports.getUserBankDetails = (req, res, next) => {
@@ -277,61 +277,128 @@ exports.getUserBankDetails = (req, res, next) => {
 };
 
 // Update User Bank Details
-exports.updateUserBankDetails = (req, res, next) => {
+exports.updateUserBankDetails = async (req, res, next) => {
   const user_id = req.params.user_id;
   const { account_holder_name, ifsc_code, account_number, bank_name, upi_id } =
     req.body;
 
-  // Validation check
-  if (!user_id) {
-    return res.status(400).json({ message: "User ID is required" });
+  if (
+    !user_id ||
+    !account_holder_name ||
+    !ifsc_code ||
+    !account_number ||
+    !bank_name ||
+    !upi_id
+  ) {
+    return res.status(400).json({ message: "All fields are required" });
   }
 
-  // Encrypt sensitive fields
-  const encryptedAccountNumber = encrypt(account_number);
-  const encryptedUpiId = encrypt(upi_id);
+  try {
+    // Step 1: Fetch existing contact_id from DB
+    const [existingData] = await new Promise((resolve, reject) => {
+      connection.query(
+        `SELECT contact_id FROM user_bank_details WHERE user_id = ?`,
+        [user_id],
+        (err, results) => {
+          if (err) return reject(err);
+          if (results.length === 0)
+            return reject({ code: 404, message: "User not found" });
+          resolve(results);
+        }
+      );
+    });
 
-  // SQL query to update user bank details
-  const query = `
+    const existing_contact_id = existingData.contact_id;
+
+    // Step 2: Create a new fund account
+    const fundAccountResponse = await axios.post(
+      "https://api.razorpay.com/v1/fund_accounts",
+      {
+        contact_id: existing_contact_id,
+        account_type: "bank_account",
+        bank_account: {
+          name: account_holder_name,
+          ifsc: ifsc_code,
+          account_number: account_number,
+        },
+      },
+      {
+        auth: {
+          username: process.env.RAZORPAYX_TESTKEY_ID,
+          password: process.env.RAZORPAYX_TESTKEY_SECRET,
+        },
+      }
+    );
+
+    const new_fund_account_id = fundAccountResponse.data.id;
+
+    // Step 3: Encrypt sensitive data
+    const encryptedAccountNumber = encrypt(account_number);
+    const encryptedUpiId = encrypt(upi_id);
+
+    // Step 4: Update DB with new info
+    const updateQuery = `
       UPDATE user_bank_details 
       SET 
         account_holder_name = ?, 
         ifsc_code = ?, 
         account_number = ?, 
         bank_name = ?, 
-        upi_id = ?
+        upi_id = ?, 
+        fund_account_id = ?
       WHERE user_id = ?
     `;
 
-  connection.query(
-    query,
-    [
-      account_holder_name,
-      ifsc_code,
-      encryptedAccountNumber,
-      bank_name,
-      encryptedUpiId,
-      user_id,
-    ],
-    (err, result) => {
-      if (err) {
-        console.error("Error updating user bank details:", err);
-        return res.status(500).json({
-          message: "An error occurred while updating user bank details",
-          error: err,
+    connection.query(
+      updateQuery,
+      [
+        account_holder_name,
+        ifsc_code,
+        encryptedAccountNumber,
+        bank_name,
+        encryptedUpiId,
+        new_fund_account_id,
+        user_id,
+      ],
+      (err, result) => {
+        if (err) {
+          console.error("DB update error:", err);
+          return res.status(500).json({
+            message: "An error occurred while updating user bank details",
+            error: err,
+          });
+        }
+
+        if (result.affectedRows === 0) {
+          return res
+            .status(404)
+            .json({ message: "No record found for given User ID" });
+        }
+
+        res.status(200).json({
+          message: "User bank details updated successfully with RazorpayX",
+          affectedRows: result.affectedRows,
+          fund_account_id: new_fund_account_id,
         });
       }
+    );
+  } catch (error) {
+    console.error("Update Razorpay bank details error:", error);
 
-      if (result.affectedRows === 0) {
-        return res
-          .status(404)
-          .json({ message: "No record found with the provided User ID" });
-      }
+    if (error.code === 404) {
+      return res.status(404).json({ message: error.message });
+    }
 
-      res.status(200).json({
-        message: "User bank details updated successfully",
-        affectedRows: result.affectedRows,
+    if (error.response?.data?.error?.code === "BAD_REQUEST_ERROR") {
+      return res.status(400).json({
+        message: "Bank validation failed",
+        error: error.response.data.error.description,
       });
     }
-  );
+
+    return res.status(500).json({
+      message: "Failed to update Razorpay fund account",
+      error: error.response?.data || error.message,
+    });
+  }
 };
