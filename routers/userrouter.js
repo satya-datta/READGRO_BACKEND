@@ -8,19 +8,8 @@ const streamifier = require("streamifier");
 const { uploadBufferToCloudinary } = require("../controller/cloudinaryupload");
 // Configure AWS
 
-const path = require("path");
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // make sure this folder exists
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
 Userrouter.post("/create-user", Usercontroller.createUser);
 Userrouter.post("/validate-password", Usercontroller.validatePassword);
 Userrouter.get("/getallusers", (req, res) => {
@@ -89,9 +78,24 @@ Userrouter.put(
 
     if (req.file) {
       try {
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder: "avatars",
-        });
+        // Use streamifier to stream file buffer to Cloudinary
+        const streamUpload = (buffer) => {
+          return new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: "avatars" },
+              (error, result) => {
+                if (result) {
+                  resolve(result);
+                } else {
+                  reject(error);
+                }
+              }
+            );
+            streamifier.createReadStream(buffer).pipe(stream);
+          });
+        };
+
+        const result = await streamUpload(req.file.buffer);
         avatarUrl = result.secure_url;
       } catch (err) {
         console.error("Cloudinary upload error:", err);
@@ -102,21 +106,23 @@ Userrouter.put(
       }
     }
 
+    // Validate required fields
     if (!userId || !name || !email || !phone || !address || !pincode) {
       return res.json({ message: "All required fields must be provided" });
     }
 
+    // Update query
     const updateUserQuery = `
-    UPDATE user
-    SET 
-      Name = ?, 
-      Email = ?, 
-      Phone = ?, 
-      Address = ?, 
-      Pincode = ?, 
-      Avatar = COALESCE(?, Avatar)
-    WHERE userid = ?
-  `;
+      UPDATE user
+      SET 
+        Name = ?, 
+        Email = ?, 
+        Phone = ?, 
+        Address = ?, 
+        Pincode = ?, 
+        Avatar = COALESCE(?, Avatar)
+      WHERE userid = ?
+    `;
 
     const updateUserValues = [
       name,
@@ -144,7 +150,6 @@ Userrouter.put(
     });
   }
 );
-
 Userrouter.put("/upgrade_package", Usercontroller.upgradeUserPackage);
 Userrouter.get("/getteam/:userId", async (req, res) => {
   try {
