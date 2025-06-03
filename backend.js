@@ -47,7 +47,6 @@ const pool = mysql.createPool({
   database: "railway",
   port: 42802,
  
-  port: 3306,
   waitForConnections: true,
   connectionLimit: 10, // Adjust based on your DB plan
   queueLimit: 0,
