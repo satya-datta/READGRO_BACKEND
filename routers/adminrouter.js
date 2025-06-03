@@ -5,44 +5,19 @@ const jwt = require("jsonwebtoken");
 
 // Secret key for JWT signing (use environment variables)
 const JWT_SECRET = process.env.JWT_SECRET || "AUTHENTICATED";
-
 const multer = require("multer");
-const multerS3 = require("multer-s3");
-const path = require("path");
-const AWS = require("aws-sdk");
-// Configure AWS
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION, // e.g. 'us-east-1'
-});
+const cloudinary = require("cloudinary").v2;
+const streamifier = require("streamifier");
 
-// Create S3 instance
-const s3 = new AWS.S3();
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Configure multer-S3
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    // acl: "public-read", // optional: allows public access to the uploaded image
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: function (req, file, cb) {
-      const ext = path.extname(file.originalname);
-      const filename = `${Date.now()}${ext}`;
-      cb(null, filename);
-    },
-  }),
-});
 router.put(
   "/updatecoursedetails/:course_id",
   upload.single("course_image"),
-  (req, res) => {
+  async (req, res) => {
     const { course_id } = req.params;
     const { course_name, course_description, instructor } = req.body;
-    const course_image = req.file ? req.file.location : null;
 
-    // Validate input
     if (!course_id) {
       return res.status(400).json({ message: "Course ID is required" });
     }
@@ -51,9 +26,33 @@ router.put(
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    console.log("Updating course details");
+    let course_image = null;
 
-    // If an image is uploaded, update the image along with other fields
+    // If a new image is uploaded, upload it to Cloudinary
+    if (req.file && req.file.buffer) {
+      try {
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "avatars" },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          streamifier.createReadStream(req.file.buffer).pipe(stream);
+        });
+
+        course_image = uploadResult.secure_url;
+      } catch (error) {
+        console.log(error);
+        console.error("Cloudinary upload error:", error);
+        return res
+          .status(500)
+          .json({ message: "Failed to upload image", error });
+      }
+    }
+
+    // SQL query
     const query = course_image
       ? `
       UPDATE course 
@@ -88,12 +87,14 @@ router.put(
           course_name,
           course_description,
           instructor,
-          course_image,
+          ...(course_image && { course_image }),
         },
       });
     });
   }
 );
+
+module.exports = router;
 
 router.put("/updatetopic/:topic_id", admincontroller.updateTopic);
 

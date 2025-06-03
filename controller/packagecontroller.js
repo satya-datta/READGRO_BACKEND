@@ -15,38 +15,44 @@ const safelyDeleteFile = (filePath) => {
 };
 // const multer = require("multer");
 
-// Configure multer storage
-const AWS = require("aws-sdk");
-const multer = require("multer");
-const multerS3 = require("multer-s3");
-const path = require("path");
+// // Configure multer storage
+// const AWS = require("aws-sdk");
+// const multer = require("multer");
+// const multerS3 = require("multer-s3");
+// const path = require("path");
 
-// Configure AWS
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION, // e.g. 'us-east-1'
-});
+// // Configure AWS
+// AWS.config.update({
+//   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+//   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+//   region: process.env.AWS_REGION, // e.g. 'us-east-1'
+// });
 
-// Create S3 instance
-const s3 = new AWS.S3();
+// // Create S3 instance
+// const s3 = new AWS.S3();
 
-// Configure multer-S3
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    // acl: "public-read", // optional: allows public access to the uploaded image
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: function (req, file, cb) {
-      const ext = path.extname(file.originalname);
-      const filename = `${Date.now()}${ext}`;
-      cb(null, filename);
-    },
-  }),
-});
+// // Configure multer-S3
+// const upload = multer({
+//   storage: multerS3({
+//     s3: s3,
+//     bucket: process.env.S3_BUCKET_NAME,
+//     // acl: "public-read", // optional: allows public access to the uploaded image
+//     contentType: multerS3.AUTO_CONTENT_TYPE,
+//     key: function (req, file, cb) {
+//       const ext = path.extname(file.originalname);
+//       const filename = `${Date.now()}${ext}`;
+//       cb(null, filename);
+//     },
+//   }),
+// });
 
 // const upload = multer({ storage: storage });
+const cloudinary = require("cloudinary").v2;
+const streamifier = require("streamifier");
+
+const multer = require("multer");
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Create Package with image upload
 // Add this middleware to your route
@@ -83,8 +89,7 @@ exports.createPackage = (req, res, next) => {
     }
   );
 };
-
-exports.updatePackageById = (req, res) => {
+exports.updatePackageById = async (req, res) => {
   const { package_id } = req.params;
   const { packageName, price, description, commission, discountPrice } =
     req.body;
@@ -97,7 +102,31 @@ exports.updatePackageById = (req, res) => {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  const packageImage = req.file ? req.file.location : null;
+  let packageImage = null;
+
+  // Upload new image if provided
+  if (req.file && req.file.buffer) {
+    try {
+      const cloudinaryResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: "packages" },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+      });
+
+      packageImage = cloudinaryResult.secure_url;
+    } catch (err) {
+      console.error("Cloudinary upload error:", err);
+      return res.status(500).json({
+        message: "Failed to upload image to Cloudinary",
+        error: err.message || err,
+      });
+    }
+  }
 
   const query = packageImage
     ? `
@@ -737,22 +766,17 @@ exports.getAllCourses = (req, res, next) => {
     res.status(200).json(results); // Send back the list of courses
   });
 };
-exports.createPackageWithCourses = (req, res, next) => {
-  if (!req.file) {
+
+exports.createPackageWithCourses = async (req, res, next) => {
+  const imageFile = req.file;
+
+  if (!imageFile || !imageFile.buffer) {
     return res.status(400).json({ message: "Image is required." });
   }
-
-  const imageUrl = req.file.location; // This is the S3 image URL
 
   const { packageName, price, description, commission, discountPrice } =
     req.body;
-  const courses = JSON.parse(req.body.courses);
-
-  const imageFile = req.file; // Uploaded image file
-
-  if (!imageFile) {
-    return res.status(400).json({ message: "Image is required." });
-  }
+  const courses = JSON.parse(req.body.courses || "[]");
 
   if (
     !packageName ||
@@ -767,11 +791,34 @@ exports.createPackageWithCourses = (req, res, next) => {
     });
   }
 
-  // Insert package details into the database, including the discount price and image URL
+  // Upload image to Cloudinary using stream
+  let imageUrl;
+  try {
+    const cloudinaryResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "packages" },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      streamifier.createReadStream(imageFile.buffer).pipe(stream);
+    });
+
+    imageUrl = cloudinaryResult.secure_url;
+  } catch (err) {
+    console.error("Cloudinary upload error:", err);
+    return res.status(500).json({
+      message: "Failed to upload image to Cloudinary",
+      error: err.message || err,
+    });
+  }
+
+  // Insert package details into the database
   const packageQuery = `
-      INSERT INTO packages (package_name, package_price, description, package_image, created_time, commission, discount_price)
-      VALUES (?, ?, ?, ?, NOW(), ?, ?)
-    `;
+    INSERT INTO packages (package_name, package_price, description, package_image, created_time, commission, discount_price)
+    VALUES (?, ?, ?, ?, NOW(), ?, ?)
+  `;
 
   connection.query(
     packageQuery,
@@ -785,9 +832,8 @@ exports.createPackageWithCourses = (req, res, next) => {
         });
       }
 
-      const packageId = result.insertId; // Get the newly created package ID
+      const packageId = result.insertId;
 
-      // Check if all provided courses exist in the database
       const checkCoursesQuery = `SELECT course_id FROM course WHERE course_id IN (?)`;
       connection.query(checkCoursesQuery, [courses], (err, result) => {
         if (err) {
@@ -804,7 +850,6 @@ exports.createPackageWithCourses = (req, res, next) => {
             .json({ message: "One or more courses not found." });
         }
 
-        // Prepare the mapping of package with courses
         const mapCoursesQuery = `INSERT INTO package_courses (package_id, course_id) VALUES ?`;
         const courseValues = courses.map((courseId) => [packageId, courseId]);
 
@@ -820,7 +865,7 @@ exports.createPackageWithCourses = (req, res, next) => {
           res.status(201).json({
             message: "Package created and courses mapped successfully.",
             package_id: packageId,
-            imageUrl, // Return the image URL if needed for frontend
+            imageUrl,
           });
         });
       });

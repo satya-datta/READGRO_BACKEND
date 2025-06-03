@@ -92,61 +92,64 @@ exports.LogoutAdmin = (req, res) => {
 
 // Create Course
 const multer = require("multer");
-const multerS3 = require("multer-s3");
-const path = require("path");
-const AWS = require("aws-sdk");
+const cloudinary = require("cloudinary").v2;
+const streamifier = require("streamifier");
+
 // Configure AWS
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION, // e.g. 'us-east-1'
-});
 
-// Create S3 instance
-const s3 = new AWS.S3();
+const path = require("path");
 
-// Configure multer-S3
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    // acl: "public-read", // optional: allows public access to the uploaded image
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: function (req, file, cb) {
-      const ext = path.extname(file.originalname);
-      const filename = `${Date.now()}${ext}`;
-      cb(null, filename);
-    },
-  }),
-});
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     cb(null, "uploads/"); // make sure this folder exists
+//   },
+//   filename: (req, file, cb) => {
+//     cb(null, Date.now() + path.extname(file.originalname));
+//   },
+// });
 
-// Controller for creating a course
-exports.createCourse = (req, res, next) => {
-  // upload.single("course_image")(req, res, (err) => {
-  //   if (err) {
-  //     return res
-  //       .status(400)
-  //       .json({ message: "Image upload failed", error: err });
-  //   }
+const upload = multer({ storage: multer.memoryStorage() });
 
+exports.createCourse = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "Image is required." });
   }
 
-  const { course_name, created_time, course_description, instructor } =
-    req.body;
-
-  // Validation checks (optional)
+  const { course_name, course_description, instructor } = req.body;
   if (!course_name || !course_description || !instructor) {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  // Get the image path (if provided)
-  const course_image = req.file.location;
+  let course_image;
 
-  // SQL query with course_image
-  const query =
-    "INSERT INTO course (course_name, created_time, course_description, instructor, course_image) VALUES (?, NOW(), ?, ?, ?);";
+  try {
+    const streamUpload = (buffer) => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "avatars" },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(buffer).pipe(stream);
+      });
+    };
+
+    const result = await streamUpload(req.file.buffer);
+    course_image = result.secure_url;
+  } catch (err) {
+    console.error("Cloudinary upload error:", err);
+    return res.status(500).json({
+      message: "Failed to upload image to Cloudinary",
+      error: err.message || err,
+    });
+  }
+
+  const query = `
+    INSERT INTO course (course_name, created_time, course_description, instructor, course_image) 
+    VALUES (?, NOW(), ?, ?, ?)
+  `;
 
   connection.query(
     query,
@@ -162,11 +165,10 @@ exports.createCourse = (req, res, next) => {
 
       res.status(201).json({
         message: "Course created successfully",
-        course_id: result.insertId, // Returns the ID of the newly created course
+        course_id: result.insertId,
       });
     }
   );
-
 };
 
 // Create Topic
@@ -638,19 +640,50 @@ exports.updateWebsiteHero = (req, res, next) => {
     { name: "image1", maxCount: 1 },
     { name: "image2", maxCount: 1 },
     { name: "image3", maxCount: 1 },
-  ])(req, res, (err) => {
+  ])(req, res, async (err) => {
     if (err) {
       return res
         .status(400)
         .json({ message: "Image upload failed", error: err });
     }
 
-    const id = 1; // Assuming you're using a hardcoded ID
+    const id = 1; // Hardcoded ID
+    const files = req.files;
 
-    // Get S3 URLs instead of filenames
-    const image1 = req.files.image1 ? req.files.image1[0].location : null;
-    const image2 = req.files.image2 ? req.files.image2[0].location : null;
-    const image3 = req.files.image3 ? req.files.image3[0].location : null;
+    // Helper function to upload image buffer to Cloudinary
+    const uploadToCloudinary = (fileBuffer, folderName) => {
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: folderName },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+        streamifier.createReadStream(fileBuffer).pipe(uploadStream);
+      });
+    };
+
+    let image1 = null;
+    let image2 = null;
+    let image3 = null;
+
+    try {
+      if (files.image1) {
+        image1 = await uploadToCloudinary(files.image1[0].buffer, "webhero");
+      }
+      if (files.image2) {
+        image2 = await uploadToCloudinary(files.image2[0].buffer, "webhero");
+      }
+      if (files.image3) {
+        image3 = await uploadToCloudinary(files.image3[0].buffer, "webhero");
+      }
+    } catch (uploadError) {
+      return res.status(500).json({
+        message: "Failed to upload image(s) to Cloudinary",
+        error: uploadError.message || uploadError,
+      });
+    }
 
     let query = "UPDATE webheroimages SET ";
     const queryParams = [];
@@ -676,10 +709,7 @@ exports.updateWebsiteHero = (req, res, next) => {
         .json({ message: "No images provided for update." });
     }
 
-    // Remove trailing comma and space
-    query = query.slice(0, -2);
-
-    // Add WHERE clause
+    query = query.slice(0, -2); // Remove trailing comma
     query += " WHERE id = ?;";
     queryParams.push(id);
 

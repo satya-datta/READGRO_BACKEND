@@ -2,33 +2,25 @@ const Userrouter = require("express").Router();
 const Usercontroller = require("../controller/usercontroller");
 const connection = require("../backend");
 const multer = require("multer");
-const multerS3 = require("multer-s3");
-const path = require("path");
-const AWS = require("aws-sdk");
+const cloudinary = require("cloudinary").v2;
+const streamifier = require("streamifier");
+
+const { uploadBufferToCloudinary } = require("../controller/cloudinaryupload");
 // Configure AWS
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION, // e.g. 'us-east-1'
+
+const path = require("path");
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/"); // make sure this folder exists
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
 });
 
-// Create S3 instance
-const s3 = new AWS.S3();
+const upload = multer({ storage });
 
-// Configure multer-S3
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    // acl: "public-read", // optional: allows public access to the uploaded image
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: function (req, file, cb) {
-      const ext = path.extname(file.originalname);
-      const filename = `${Date.now()}${ext}`;
-      cb(null, filename);
-    },
-  }),
-});
 Userrouter.post("/create-user", Usercontroller.createUser);
 Userrouter.post("/validate-password", Usercontroller.validatePassword);
 Userrouter.get("/getallusers", (req, res) => {
@@ -86,51 +78,56 @@ Userrouter.get(
   Usercontroller.getSponsorDetailsByReferralCode
 );
 Userrouter.post("/validate_user", Usercontroller.validateUser);
-Userrouter.put("/update_user/:user_id", (req, res, next) => {
-  // Handle avatar upload
-  upload.single("avatar")(req, res, (err) => {
-    if (err) {
-      return res
-        .status(500)
-        .json({ message: "Error uploading avatar image", error: err });
-    }
-
-    const userId = req.params.user_id; // Extract user ID from route params
+Userrouter.put(
+  "/update_user/:user_id",
+  upload.single("avatar"),
+  async (req, res) => {
+    const userId = req.params.user_id;
     const { name, email, phone, gender, address, pincode } = req.body;
 
-    const avatar = req.file ? req.file.location : null; // Get the new avatar filename if provided
+    let avatarUrl = null;
 
-    // Validate required fields
+    if (req.file) {
+      try {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "avatars",
+        });
+        avatarUrl = result.secure_url;
+      } catch (err) {
+        console.error("Cloudinary upload error:", err);
+        return res.status(500).json({
+          message: "Failed to upload avatar to Cloudinary",
+          error: err.message || err,
+        });
+      }
+    }
+
     if (!userId || !name || !email || !phone || !address || !pincode) {
       return res.json({ message: "All required fields must be provided" });
     }
 
-    // Prepare query and data for updating user details
     const updateUserQuery = `
-        UPDATE user
-        SET 
-          Name = ?, 
-          Email = ?, 
-          Phone = ?, 
-        
-          Address = ?, 
-          Pincode = ?, 
-          Avatar = COALESCE(?, Avatar)
-        WHERE userid = ?
-      `;
+    UPDATE user
+    SET 
+      Name = ?, 
+      Email = ?, 
+      Phone = ?, 
+      Address = ?, 
+      Pincode = ?, 
+      Avatar = COALESCE(?, Avatar)
+    WHERE userid = ?
+  `;
 
     const updateUserValues = [
       name,
       email,
       phone,
-
       address,
       pincode,
-      avatar,
+      avatarUrl,
       userId,
     ];
 
-    // Execute the update query
     connection.query(updateUserQuery, updateUserValues, (err, result) => {
       if (err) {
         console.error("Error updating user details:", err);
@@ -145,8 +142,8 @@ Userrouter.put("/update_user/:user_id", (req, res, next) => {
 
       res.status(200).json({ message: "User details updated successfully" });
     });
-  });
-});
+  }
+);
 
 Userrouter.put("/upgrade_package", Usercontroller.upgradeUserPackage);
 Userrouter.get("/getteam/:userId", async (req, res) => {

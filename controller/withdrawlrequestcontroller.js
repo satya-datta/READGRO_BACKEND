@@ -395,7 +395,7 @@ exports.ProcessPayout = async (req, res) => {
     // 📌 Send Approval Email
     const withdrawalEmailContent = `
   <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
-    <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
+    <img src="https://res.cloudinary.com/djset9wsw/image/upload/v1748972406/RGFULL_dbbwmo.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
     <h2 style="font-size:28px;">Withdrawal Approved</h2>
     <p style="font-size:18px;">Dear User,</p>
     <p style="font-size:16px;">Your withdrawal request of <b>₹${amount}</b> has been <b>approved</b> and processed successfully.</p>
@@ -440,7 +440,7 @@ exports.ProcessPayout = async (req, res) => {
     // 📌 Send Rejection Email
     const withdrawalRejectedEmailContent = `
   <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
-    <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
+    <img src="https://res.cloudinary.com/djset9wsw/image/upload/v1748972406/RGFULL_dbbwmo.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
     <h2 style="font-size:28px;">Withdrawal Rejected</h2>
     <p style="font-size:18px;">Dear User,</p>
     <p style="font-size:16px;">Your withdrawal request of <b>₹${amount}</b> has been <b>rejected</b>.</p>

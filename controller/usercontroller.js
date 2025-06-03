@@ -1,5 +1,5 @@
 const connection = require("../backend");
-
+const { uploadBufferToCloudinary } = require("./cloudinaryupload");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { sendEmail } = require("../emailService"); // Import email service
@@ -13,30 +13,37 @@ const multerS3 = require("multer-s3");
 const path = require("path");
 const AWS = require("aws-sdk");
 // Configure AWS
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION, // e.g. 'us-east-1'
-});
+// AWS.config.update({
+//   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+//   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+//   region: process.env.AWS_REGION, // e.g. 'us-east-1'
+// });
 
-// Create S3 instance
-const s3 = new AWS.S3();
+// // Create S3 instance
+// const s3 = new AWS.S3();
 
-// Configure multer-S3
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    // acl: "public-read", // optional: allows public access to the uploaded image
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: function (req, file, cb) {
-      const ext = path.extname(file.originalname);
-      const filename = `${Date.now()}${ext}`;
-      cb(null, filename);
-    },
-  }),
-});
+// // Configure multer-S3
+// const upload = multer({
+//   storage: multerS3({
+//     s3: s3,
+//     bucket: process.env.S3_BUCKET_NAME,
+//     // acl: "public-read", // optional: allows public access to the uploaded image
+//     contentType: multerS3.AUTO_CONTENT_TYPE,
+//     key: function (req, file, cb) {
+//       const ext = path.extname(file.originalname);
+//       const filename = `${Date.now()}${ext}`;
+//       cb(null, filename);
+//     },
+//   }),
+// });
+
 // Function to calculate referral commission
+
+// Store file in memory (not disk)
+const storage = multer.memoryStorage();
+
+// Export the configured upload middleware
+const upload = multer({ storage });
 const returnCommissionMethod = (userPackageId, referrerPackageId, callback) => {
   const packageQuery = `
     SELECT package_id, package_price,commission FROM packages WHERE package_id IN (?, ?)
@@ -211,7 +218,7 @@ exports.createUser = (req, res, next) => {
             // ✅ Send email after successful signup
             const signupEmailContent = `
   <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
-    <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
+    <img src="https://res.cloudinary.com/djset9wsw/image/upload/v1748972406/RGFULL_dbbwmo.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
     <h2 style="font-size:28px;">Welcome to Our Platform, ${name}!</h2>
     <p style="font-size:18px;">You have successfully signed up.<br>Your account is now active.</p>
     <hr style="margin:20px 0;border:none;border-top:1px solid rgba(255,255,255,0.3);">
@@ -310,7 +317,7 @@ exports.createUser = (req, res, next) => {
                                   console.log(userId);
                                   const referralEmailContent = `
   <div style="max-width:600px;margin:20px auto;padding:20px;border-radius:10px;background:linear-gradient(135deg,#d4fc79,#96e6a1);font-family:sans-serif;color:#333;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
-    <img src="https://readgrobucketforimages.s3.us-east-1.amazonaws.com/RGFULL.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
+    <img src="https://res.cloudinary.com/djset9wsw/image/upload/v1748972406/RGFULL_dbbwmo.png" alt="ReadGro Logo" style="width:150px;margin-bottom:20px;">
     <h2 style="font-size:28px;">Referral Bonus Credited!</h2>
     <p style="font-size:18px;">Congratulations! You have earned a referral bonus of ₹${referralCommission}.</p>
     <hr style="margin:20px 0;border:none;border-top:1px solid rgba(255,255,255,0.3);">
@@ -627,7 +634,7 @@ exports.getUsersList = (req, res) => {
 
 exports.updateUser = (req, res, next) => {
   // Handle avatar upload
-  upload.single("avatar")(req, res, (err) => {
+  upload.single("avatar")(req, res, async (err) => {
     if (err) {
       return res
         .status(500)
@@ -648,7 +655,19 @@ exports.updateUser = (req, res, next) => {
       referralCode,
     } = req.body;
 
-    const avatar = req.file ? req.file.location : null; // Get the new avatar filename if provided
+    let avatarUrl = null;
+
+    if (avatar) {
+      try {
+        const result = await uploadBufferToCloudinary(avatar, "avatars");
+        avatarUrl = result.secure_url;
+      } catch (err) {
+        return res.status(500).json({
+          message: "Failed to upload avatar to Cloudinary",
+          error: err,
+        });
+      }
+    }
 
     // Validate required fields
     if (!userId || !name || !package_id || !email || !phone || !gender) {
@@ -681,7 +700,7 @@ exports.updateUser = (req, res, next) => {
       email,
       phone,
       gender,
-      avatar,
+      avatarUrl,
       Address || null,
       Pincode || null,
       generatedReferralCode || null,
@@ -980,7 +999,7 @@ exports.sendOtp = async (req, res) => {
 
     try {
       await transporter.sendMail({
-        from: `"Admin OTP" <${process.env.EMAIL_USER}>`,
+        from: `User Otp" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Your OTP for Login Into READGRO",
         html: `<p>Your OTP for processing credentials: <strong>${otp}</strong></p>`,
