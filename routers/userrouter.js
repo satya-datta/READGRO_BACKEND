@@ -61,6 +61,7 @@ Userrouter.post("/verifyuser-otp", Usercontroller.VerifyOtp);
 
 Userrouter.post("/sendcontact", Usercontroller.sendContactDetails);
 
+Userrouter.get("/getuserbyemail/:email", Usercontroller.getUserByEmail);
 Userrouter.get("/getuser_details/:user_id", Usercontroller.getUserById);
 Userrouter.get(
   "/getsponseordetails/:reffercode",
